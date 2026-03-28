@@ -267,6 +267,14 @@ Common ones:
 
 ## Deployment
 
+For a step-by-step deploy walkthrough, use:
+
+- `DEPLOYMENT.md`
+
+For the recommended split setup with frontend on Vercel and backend on OCI, use:
+
+- `DEPLOYMENT_OCI_VERCEL.md`
+
 ## Recommended free-tier deployment target
 
 The repo is prepared for a Render free web service because:

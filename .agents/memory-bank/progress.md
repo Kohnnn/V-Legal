@@ -35,3 +35,5 @@
 - linked compare actions from citation, lifecycle, and workbench alert surfaces
 - tuned compare alignment to prefer explicit citations for lifecycle-style document pairs
 - added first-pass diff summaries and clause-level change labeling in compare mode
+- wrote a dedicated deployment walkthrough in `DEPLOYMENT.md` and linked it from `README.md`
+- added OCI backend + Vercel frontend deployment docs and CORS-ready backend settings
