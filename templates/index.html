@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}V-Legal Archive{% endblock %}
+
+{% block content %}
+<main class="archive-page">
+    <section class="archive-masthead">
+        <div class="masthead-copy">
+            <p class="section-label">Creative North Star / The Scholarly Archive</p>
+            <h1>Vietnamese law, staged like a government gazette and queried like a modern research system.</h1>
+            <p class="masthead-lead">
+                The current build uses the Hugging Face legal corpus as a fast prototype surface.
+                The experience already centers clean reading, grounded retrieval, and personal tracking rather than a cluttered portal aesthetic.
+            </p>
+        </div>
+        <div class="masthead-stats">
+            <article>
+                <span>Loaded documents</span>
+                <strong>{{ stats["document_count"] }}</strong>
+            </article>
+            <article>
+                <span>Issuing authorities</span>
+                <strong>{{ stats["authority_count"] }}</strong>
+            </article>
+            <article>
+                <span>Tracked laws</span>
+                <strong id="tracked-count">{{ stats["tracked_count"] }}</strong>
+            </article>
+            <article>
+                <span>Official subjects</span>
+                <strong>{{ stats["taxonomy_subject_count"] }}</strong>
+            </article>
+            <article>
+                <span>Graph links</span>
+                <strong>{{ stats["relation_count"] }}</strong>
+            </article>
+            <article>
+                <span>Citation links</span>
+                <strong>{{ stats["citation_link_count"] }}</strong>
+            </article>
+            <article>
+                <span>Research views</span>
+                <strong>{{ stats["research_view_count"] }}</strong>
+            </article>
+            <article>
+                <span>Year range</span>
+                <strong>
+                    {% if stats["min_year"] and stats["max_year"] %}
+                        {{ stats["min_year"] }}-{{ stats["max_year"] }}
+                    {% else %}
+                        Not imported yet
+                    {% endif %}
+                </strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="search-ribbon" aria-label="Archive search">
+        <form method="get" action="/" class="search-form">
+            {% if active_topic %}
+                <div class="active-topic-banner">
+                    <span>Official topic filter</span>
+                    <strong>{{ active_topic.name }}</strong>
+                    <a href="/">Clear topic</a>
+                </div>
+            {% endif %}
+            <div class="search-form__topline">
+                <label class="search-query-field">
+                    <span>Search by title, number, clause, or concept</span>
+                    <input type="search" name="q" value="{{ query }}" placeholder="Ex: 30/CT-TTg, boi thuong dat dai, bao hiem huu tri, cong nghiep van hoa">
+                </label>
+                {% if active_topic %}
+                    <input type="hidden" name="topic" value="{{ active_topic.slug }}">
+                {% endif %}
+                <button type="submit" class="button-primary">Search Archive</button>
+            </div>
+            <div class="search-form__filters">
+                <label class="filter-field">
+                    <span>Document type</span>
+                    <select name="legal_type">
+                        <option value="">All types</option>
+                        {% for item in filters["legal_types"] %}
+                            <option value="{{ item }}" {% if selected_type == item %}selected{% endif %}>{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="filter-field">
+                    <span>Year</span>
+                    <select name="year">
+                        <option value="">All years</option>
+                        {% for item in filters["years"] %}
+                            <option value="{{ item }}" {% if selected_year == item %}selected{% endif %}>{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="filter-field filter-field--grow">
+                    <span>Issuing authority</span>
+                    <input type="text" name="issuer" value="{{ selected_issuer }}" placeholder="Ex: Thu tuong Chinh phu">
+                </label>
+            </div>
+        </form>
+        <form method="post" action="/research/views" class="save-view-form">
+            <input type="hidden" name="q" value="{{ query }}">
+            <input type="hidden" name="topic" value="{{ active_topic.slug if active_topic else '' }}">
+            <input type="hidden" name="legal_type" value="{{ selected_type }}">
+            <input type="hidden" name="year" value="{{ selected_year or '' }}">
+            <input type="hidden" name="issuer" value="{{ selected_issuer }}">
+            <label class="save-view-form__field">
+                <span>Save current research view</span>
+                <input type="text" name="name" placeholder="Ex: Cultural industry watch, Insurance issuer scan">
+            </label>
+            <button type="submit" class="entry-link">Save View</button>
+        </form>
+    </section>
+
+    <section class="archive-grid">
+        <aside class="archive-rail archive-rail--left">
+            <section class="tone-panel" id="tracked-laws">
+                <div class="panel-heading">
+                    <p class="section-label">Personal tracking</p>
+                    <h2>My Followed Laws</h2>
+                </div>
+                {% if tracked_documents %}
+                    <div class="tracked-list">
+                        {% for item in tracked_documents %}
+                            <a class="tracked-item" href="/documents/{{ item.id }}">
+                                <strong>{{ item.title }}</strong>
+                                <span>{{ item.document_number or item.legal_type or "Document" }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                    <a class="entry-link entry-link--full" href="/tracking">Open workbench</a>
+                {% else %}
+                    <p class="panel-copy">
+                        Track laws directly from the archive list or a document page. This is the first step toward the portfolio workflow from the design ideas.
+                    </p>
+                    <a class="entry-link entry-link--full" href="/tracking">Open workbench</a>
+                {% endif %}
+            </section>
+
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Official taxonomy</p>
+                    <h2>Phap dien subjects</h2>
+                </div>
+                <div class="taxonomy-list">
+                    {% for item in taxonomy_subjects %}
+                        <a class="taxonomy-item {% if active_topic and active_topic.slug == item.slug %}is-active{% endif %}" href="/?topic={{ item.slug }}">
+                            <strong>{{ item.name }}</strong>
+                            <span>{{ item.document_count }} linked docs</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Grounded retrieval</p>
+                    <h2>Ask the current corpus</h2>
+                </div>
+                <form class="ask-form" data-ask-form>
+                    <label for="question">Question</label>
+                    <textarea id="question" name="question" rows="4" placeholder="Vi du: Van ban nao hien dang dieu chinh cong nghiep van hoa?" {% if dataset_empty %}disabled{% endif %}></textarea>
+                    <button type="submit" class="button-primary" {% if dataset_empty %}disabled{% endif %}>Generate Brief</button>
+                </form>
+                <div class="ask-output muted" data-ask-output>
+                    {% if dataset_empty %}
+                        Import a starter sample first with <code>uv run python scripts/bootstrap_hf_dataset.py --limit 500</code>.
+                    {% else %}
+                        This brief only cites passages retrieved from the local sample. It is intentionally conservative.
+                    {% endif %}
+                </div>
+            </section>
+        </aside>
+
+        <section class="archive-column">
+            <div class="column-heading">
+                <div>
+                    <p class="section-label">Archive index</p>
+                    <h2>
+                        {% if active_topic and not query %}
+                            {{ results["total"] }} matches inside "{{ active_topic.name }}"
+                        {% elif query %}
+                            {{ results["total"] }} matches for "{{ query }}"
+                        {% else %}
+                            Latest imported archive records
+                        {% endif %}
+                    </h2>
+                </div>
+                {% if stats["last_imported_at"] %}
+                    <p class="column-meta">Last import: {{ stats["last_imported_at"] }}</p>
+                {% endif %}
+            </div>
+
+            {% if dataset_empty %}
+                <section class="empty-block">
+                    <h3>No local archive yet</h3>
+                    <p>Seed the prototype corpus first, then expand in chunks as the UX stabilizes.</p>
+                    <code>uv run python scripts/bootstrap_hf_dataset.py --limit 500</code>
+                </section>
+            {% elif results["items"] %}
+                <div class="archive-list">
+                    {% for item in results["items"] %}
+                        <article class="archive-entry">
+                            <div class="archive-entry__header">
+                                <div class="archive-entry__meta">
+                                    <span class="meta-chip meta-chip--soft">{{ item.legal_type or "Document" }}</span>
+                                    {% if item.document_number %}<span>{{ item.document_number }}</span>{% endif %}
+                                    {% if item.issuance_date %}<span>{{ item.issuance_date }}</span>{% endif %}
+                                </div>
+                                <button
+                                    type="button"
+                                    class="track-button {% if item.id in tracked_ids %}is-active{% endif %}"
+                                    data-track-button
+                                    data-document-id="{{ item.id }}"
+                                    data-tracked="{{ 'true' if item.id in tracked_ids else 'false' }}"
+                                >
+                                    {% if item.id in tracked_ids %}Tracked{% else %}Track law{% endif %}
+                                </button>
+                            </div>
+                            <h3><a href="/documents/{{ item.id }}">{{ item.title }}</a></h3>
+                            <p class="archive-entry__authority">{{ item.issuing_authority or "Unknown issuing authority" }}</p>
+                            <div class="provenance-badges">
+                                {% for route in item.provenance.routes %}
+                                    <a class="provenance-badge provenance-badge--{{ route.confidence }}" href="{{ route.url }}" target="_blank" rel="noreferrer">{{ route.short_label }}</a>
+                                {% endfor %}
+                            </div>
+                            <p class="archive-entry__snippet">{{ item.snippet | safe }}</p>
+                            <div class="archive-entry__footer">
+                                {% if item.legal_sectors %}
+                                    <span class="archive-entry__sectors">{{ item.legal_sectors }}</span>
+                                {% endif %}
+                                <a href="/documents/{{ item.id }}" class="entry-link">Open record</a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+
+                {% if results["page_count"] > 1 %}
+                    <nav class="pagination" aria-label="Pagination">
+                    {% set previous_page = results["page"] - 1 %}
+                    {% set next_page = results["page"] + 1 %}
+                    <a class="pagination-link {% if results["page"] == 1 %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ previous_page if previous_page > 0 else 1 }}">Previous</a>
+                    <span>Page {{ results["page"] }} of {{ results["page_count"] }}</span>
+                    <a class="pagination-link {% if results["page"] >= results["page_count"] %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ next_page if next_page <= results["page_count"] else results["page_count"] }}">Next</a>
+                </nav>
+            {% endif %}
+            {% else %}
+                <section class="empty-block">
+                    <h3>No results found</h3>
+                    <p>Try a broader keyword, remove one of the filters, or search by an exact document number.</p>
+                </section>
+            {% endif %}
+        </section>
+
+        <aside class="archive-rail archive-rail--right">
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Research memory</p>
+                    <h2>Saved research views</h2>
+                </div>
+                {% if research_views %}
+                    <div class="recent-list">
+                        {% for item in research_views %}
+                            <a class="recent-item" href="/research/views/{{ item.id }}">
+                                <strong>{{ item.name }}</strong>
+                                <span>{{ item.query or item.topic_slug or item.legal_type or 'Saved filter' }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="panel-copy">Save a search above to build a reusable research view for repeated cross-checking.</p>
+                {% endif %}
+            </section>
+
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Archive composition</p>
+                    <h2>Dominant legal types</h2>
+                </div>
+                <div class="rank-list">
+                    {% for item in top_legal_types %}
+                        <div class="rank-item">
+                            <strong>{{ item.legal_type }}</strong>
+                            <span>{{ item.total }} records</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Recent archive surface</p>
+                    <h2>Newest imported records</h2>
+                </div>
+                <div class="recent-list">
+                    {% for item in recent_documents %}
+                        <a class="recent-item" href="/documents/{{ item.id }}">
+                            <strong>{{ item.title }}</strong>
+                            <span>{{ item.document_number or item.issuance_date or item.legal_type }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="tone-panel" id="source-roadmap">
+                <div class="panel-heading">
+                    <p class="section-label">Recommended next step</p>
+                    <h2>Authority layering roadmap</h2>
+                </div>
+                <ol class="roadmap-list">
+                    <li><strong>Now:</strong> HF corpus for search, tracking, and grounded reading UX.</li>
+                    <li><strong>Now:</strong> official provenance badges and relationship graph support are in place.</li>
+                    <li><strong>Next:</strong> expand tracked-law workflow into alerts and saved research views.</li>
+                    <li><strong>Then:</strong> merge richer VBPL and Van ban Chinh phu data for stronger canonical linking.</li>
+                    <li><strong>Later:</strong> hybrid retrieval and MCP export surfaces.</li>
+                </ol>
+            </section>
+        </aside>
+    </section>
+</main>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}{{ view.name }} - V-Legal{% endblock %}
+
+{% block content %}
+<main class="workbench-page">
+    <section class="archive-masthead">
+        <div class="masthead-copy">
+            <p class="section-label">Saved Research View</p>
+            <h1>{{ view.name }}</h1>
+            <p class="masthead-lead">
+                Re-run a saved legal filter without rebuilding the search every time. Use this for repeated monitoring, cross-checking,
+                and building topic-specific legal reading queues.
+            </p>
+        </div>
+        <div class="masthead-stats">
+            <article>
+                <span>Saved query</span>
+                <strong>{{ view.query or "Topic-led" }}</strong>
+            </article>
+            <article>
+                <span>Topic</span>
+                <strong>{{ active_topic.name if active_topic else "None" }}</strong>
+            </article>
+            <article>
+                <span>Filter type</span>
+                <strong>{{ view.legal_type or "All" }}</strong>
+            </article>
+            <article>
+                <span>Year</span>
+                <strong>{{ view.year or "All" }}</strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="archive-grid">
+        <aside class="archive-rail archive-rail--left">
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Saved filter</p>
+                    <h2>View definition</h2>
+                </div>
+                <dl class="meta-grid">
+                    <div><dt>Query</dt><dd>{{ view.query or "None" }}</dd></div>
+                    <div><dt>Topic</dt><dd>{{ active_topic.name if active_topic else "None" }}</dd></div>
+                    <div><dt>Type</dt><dd>{{ view.legal_type or "All" }}</dd></div>
+                    <div><dt>Year</dt><dd>{{ view.year or "All" }}</dd></div>
+                    <div><dt>Issuer</dt><dd>{{ view.issuer or "All" }}</dd></div>
+                </dl>
+                <div class="stacked-actions">
+                    <a class="entry-link entry-link--full" href="/?{{ edit_query_string }}">Open as live search</a>
+                    <form method="post" action="/research/views/{{ view.id }}/delete">
+                        <button type="submit" class="track-button track-button--danger">Delete view</button>
+                    </form>
+                </div>
+            </section>
+        </aside>
+
+        <section class="archive-column">
+            <section class="tone-panel">
+                <div class="column-heading">
+                    <div>
+                        <p class="section-label">Saved results</p>
+                        <h2>{{ results["total"] }} matching records</h2>
+                    </div>
+                </div>
+                {% if results["items"] %}
+                    <div class="archive-list">
+                        {% for item in results["items"] %}
+                            <article class="archive-entry">
+                                <div class="archive-entry__header">
+                                    <div class="archive-entry__meta">
+                                        <span class="meta-chip meta-chip--soft">{{ item.legal_type or "Document" }}</span>
+                                        {% if item.document_number %}<span>{{ item.document_number }}</span>{% endif %}
+                                        {% if item.issuance_date %}<span>{{ item.issuance_date }}</span>{% endif %}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="track-button {% if item.id in tracked_ids %}is-active{% endif %}"
+                                        data-track-button
+                                        data-document-id="{{ item.id }}"
+                                        data-tracked="{{ 'true' if item.id in tracked_ids else 'false' }}"
+                                    >
+                                        {% if item.id in tracked_ids %}Tracked{% else %}Track law{% endif %}
+                                    </button>
+                                </div>
+                                <h3><a href="/documents/{{ item.id }}">{{ item.title }}</a></h3>
+                                <p class="archive-entry__authority">{{ item.issuing_authority or "Unknown issuing authority" }}</p>
+                                <div class="provenance-badges">
+                                    {% for route in item.provenance.routes %}
+                                        <a class="provenance-badge provenance-badge--{{ route.confidence }}" href="{{ route.url }}" target="_blank" rel="noreferrer">{{ route.short_label }}</a>
+                                    {% endfor %}
+                                </div>
+                                <p class="archive-entry__snippet">{{ item.snippet | safe }}</p>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    {% if results["page_count"] > 1 %}
+                        <nav class="pagination" aria-label="Pagination">
+                            {% set previous_page = results["page"] - 1 %}
+                            {% set next_page = results["page"] + 1 %}
+                            <a class="pagination-link {% if results["page"] == 1 %}is-disabled{% endif %}" href="/research/views/{{ view.id }}?page={{ previous_page if previous_page > 0 else 1 }}">Previous</a>
+                            <span>Page {{ results["page"] }} of {{ results["page_count"] }}</span>
+                            <a class="pagination-link {% if results["page"] >= results["page_count"] %}is-disabled{% endif %}" href="/research/views/{{ view.id }}?page={{ next_page if next_page <= results["page_count"] else results["page_count"] }}">Next</a>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <section class="empty-block">
+                        <h3>No results in this saved view</h3>
+                        <p>Open the live search and loosen one or more filters.</p>
+                    </section>
+                {% endif %}
+            </section>
+        </section>
+    </section>
+</main>
+{% endblock %}

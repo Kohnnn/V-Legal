@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}V-Legal Workbench{% endblock %}
+
+{% block content %}
+<main class="workbench-page">
+    <section class="archive-masthead">
+        <div class="masthead-copy">
+            <p class="section-label">Research Workbench</p>
+            <h1>Track legal change, save research lenses, and surface cross-check alerts in one place.</h1>
+            <p class="masthead-lead">
+                This workspace turns tracked documents into an operational research queue. Alerts are derived from lifecycle graph links,
+                explicit citations, and newer materials in the same official subject areas.
+            </p>
+        </div>
+        <div class="masthead-stats">
+            <article>
+                <span>Tracked laws</span>
+                <strong>{{ stats["tracked_count"] }}</strong>
+            </article>
+            <article>
+                <span>Active alerts</span>
+                <strong>{{ dashboard["alert_count"] }}</strong>
+            </article>
+            <article>
+                <span>Saved views</span>
+                <strong>{{ stats["research_view_count"] }}</strong>
+            </article>
+            <article>
+                <span>Citation links</span>
+                <strong>{{ stats["citation_link_count"] }}</strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="archive-grid">
+        <aside class="archive-rail archive-rail--left">
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Saved filters</p>
+                    <h2>Research views</h2>
+                </div>
+                {% if research_views %}
+                    <div class="recent-list">
+                        {% for item in research_views %}
+                            <a class="recent-item" href="/research/views/{{ item.id }}">
+                                <strong>{{ item.name }}</strong>
+                                <span>{{ item.query or item.topic_slug or item.legal_type or "Saved filter" }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="panel-copy">Save archive filters from the main search page to build reusable research lenses.</p>
+                {% endif %}
+            </section>
+        </aside>
+
+        <section class="archive-column">
+            <section class="tone-panel">
+                <div class="column-heading">
+                    <div>
+                        <p class="section-label">Alert queue</p>
+                        <h2>Tracked-law alerts</h2>
+                    </div>
+                </div>
+                {% if dashboard["alerts"] %}
+                    <div class="alert-list">
+                        {% for item in dashboard["alerts"] %}
+                            <article class="alert-card alert-card--{{ item["severity"] }}">
+                                <div class="alert-card__meta">
+                                    <span class="meta-chip meta-chip--soft">{{ item["severity"] }}</span>
+                                    <span>{{ item["kind"] }}</span>
+                                </div>
+                                <h3>{{ item["headline"] }}</h3>
+                                <p>{{ item["copy"] }}</p>
+                                <div class="alert-card__links">
+                                    <a href="/documents/{{ item["document"]["id"] }}">Tracked document</a>
+                                    <a href="/documents/{{ item["target"]["id"] }}">Open related document</a>
+                                    <a href="/compare/{{ item["document"]["id"] }}/{{ item["target"]["id"] }}">Compare</a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <section class="empty-block">
+                        <h3>No alerts yet</h3>
+                        <p>Track more laws from the archive to start building a monitored legal watchlist.</p>
+                    </section>
+                {% endif %}
+            </section>
+        </section>
+
+        <aside class="archive-rail archive-rail--right">
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Tracked dossiers</p>
+                    <h2>Watched documents</h2>
+                </div>
+                {% if dashboard["dossiers"] %}
+                    <div class="dossier-list">
+                        {% for item in dashboard["dossiers"] %}
+                            <article class="dossier-card">
+                                <h3><a href="/documents/{{ item.document.id }}">{{ item.document.title }}</a></h3>
+                                <p>{{ item.document.document_number or item.document.legal_type or "Document" }}</p>
+                                <div class="dossier-metrics">
+                                    <span>{{ item.incoming_citations }} inbound cites</span>
+                                    <span>{{ item.outgoing_citations }} outbound cites</span>
+                                    <span>{{ item.lifecycle_links }} lifecycle links</span>
+                                </div>
+                                {% if item.subjects %}
+                                    <div class="taxonomy-list taxonomy-list--compact">
+                                        {% for subject in item.subjects[:3] %}
+                                            <a class="taxonomy-item is-active" href="/?topic={{ subject.slug }}">
+                                                <strong>{{ subject.name }}</strong>
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                {% if item.same_subject_updates %}
+                                    <div class="recent-list recent-list--compact">
+                                        {% for doc in item.same_subject_updates %}
+                                            <a class="recent-item" href="/documents/{{ doc.id }}">
+                                                <strong>{{ doc.title }}</strong>
+                                                <span>{{ doc.document_number or doc.issuance_date or doc.legal_type }}</span>
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="panel-copy">No tracked documents yet. Track a law from the archive or document reader first.</p>
+                {% endif %}
+            </section>
+        </aside>
+    </section>
+</main>
+{% endblock %}

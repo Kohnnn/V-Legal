@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Documents - V-Legal{% endblock %}
+
+{% block content %}
+<main class="compare-page">
+    <section class="archive-masthead">
+        <div class="masthead-copy">
+            <p class="section-label">Clause-level cross-check</p>
+            <h1>Compare legal documents side by side with citations, lifecycle links, and section alignment.</h1>
+            <p class="masthead-lead">
+                This compare mode helps verify how an amended, cited, or related document maps onto another record in the local corpus.
+                It uses explicit citations first, then section label and content alignment as fallback.
+            </p>
+        </div>
+        <div class="masthead-stats">
+            <article>
+                <span>Matched sections</span>
+                <strong>{{ compare_view.alignment.matched_count }}</strong>
+            </article>
+            <article>
+                <span>Explicit citation matches</span>
+                <strong>{{ compare_view.alignment.explicit_match_count }}</strong>
+            </article>
+            <article>
+                <span>Instruction matches</span>
+                <strong>{{ compare_view.alignment.change_counts.instruction }}</strong>
+            </article>
+            <article>
+                <span>Left-only sections</span>
+                <strong>{{ compare_view.alignment.left_only_count }}</strong>
+            </article>
+            <article>
+                <span>Right-only sections</span>
+                <strong>{{ compare_view.alignment.right_only_count }}</strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="compare-docs">
+        <article class="compare-doc-card">
+            <p class="section-label">Left document</p>
+            <h2><a href="/documents/{{ compare_view.left_document.id }}">{{ compare_view.left_document.title }}</a></h2>
+            <p>{{ compare_view.left_document.document_number or compare_view.left_document.legal_type or "Document" }}</p>
+        </article>
+        <div class="compare-doc-actions">
+            <a class="entry-link entry-link--full" href="/compare/{{ compare_view.right_document.id }}/{{ compare_view.left_document.id }}">Swap sides</a>
+        </div>
+        <article class="compare-doc-card">
+            <p class="section-label">Right document</p>
+            <h2><a href="/documents/{{ compare_view.right_document.id }}">{{ compare_view.right_document.title }}</a></h2>
+            <p>{{ compare_view.right_document.document_number or compare_view.right_document.legal_type or "Document" }}</p>
+        </article>
+    </section>
+
+    <section class="archive-grid">
+        <aside class="archive-rail archive-rail--left">
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Direct legal links</p>
+                    <h2>Relationship signals</h2>
+                </div>
+                {% if compare_view.pair_relations %}
+                    <div class="relation-list">
+                        {% for item in compare_view.pair_relations %}
+                            <article class="relation-item-card">
+                                <strong>{{ item.label }}</strong>
+                                <span>{{ "Left to right" if item.direction == "left_to_right" else "Right to left" }}</span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="panel-copy">No direct lifecycle graph link was inferred between these two documents.</p>
+                {% endif %}
+            </section>
+
+            <section class="tone-panel">
+                <div class="panel-heading">
+                    <p class="section-label">Explicit citations</p>
+                    <h2>Citation route summary</h2>
+                </div>
+                <div class="relation-list">
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.pair_citations.left_to_right | length }}</strong>
+                        <span>Left document citations to right</span>
+                    </article>
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.pair_citations.right_to_left | length }}</strong>
+                        <span>Right document citations to left</span>
+                    </article>
+                </div>
+            </section>
+        </aside>
+
+        <section class="archive-column">
+            <section class="tone-panel">
+                <div class="column-heading">
+                    <div>
+                        <p class="section-label">Aligned sections</p>
+                        <h2>Cross-check map</h2>
+                    </div>
+                </div>
+                {% if compare_view.lifecycle_compare %}
+                    <p class="panel-copy">
+                        This pair looks like a lifecycle comparison, so the view prioritizes explicit citation routes over broad heuristic section matching.
+                    </p>
+                {% endif %}
+                <div class="compare-change-summary">
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.alignment.change_counts.unchanged }}</strong>
+                        <span>Unchanged</span>
+                    </article>
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.alignment.change_counts.expanded }}</strong>
+                        <span>Expanded</span>
+                    </article>
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.alignment.change_counts.reduced }}</strong>
+                        <span>Reduced</span>
+                    </article>
+                    <article class="relation-item-card">
+                        <strong>{{ compare_view.alignment.change_counts.rewritten }}</strong>
+                        <span>Rewritten</span>
+                    </article>
+                </div>
+                <div class="compare-grid">
+                    {% for row in compare_view.alignment.rows %}
+                        <article class="compare-row compare-row--{{ row.kind }}">
+                            <div class="compare-row__meta">
+                                <span class="meta-chip meta-chip--soft">{{ row.reason }}</span>
+                                {% if row.score %}<span>Similarity {{ row.score }}</span>{% endif %}
+                                {% if row.change %}<span>{{ row.change.change_label }}</span>{% endif %}
+                            </div>
+                            <div class="compare-row__columns">
+                                <section class="compare-column compare-column--left">
+                                    {% if row.left %}
+                                        <p class="section-label">Left</p>
+                                        <h3>{{ row.left.label }}</h3>
+                                        <p>{{ row.left.summary }}</p>
+                                        <a class="entry-link" href="/documents/{{ compare_view.left_document.id }}#{{ row.left.anchor }}">Open section</a>
+                                    {% else %}
+                                        <p class="panel-copy">No left-side match.</p>
+                                    {% endif %}
+                                </section>
+                                <section class="compare-column compare-column--right">
+                                    {% if row.right %}
+                                        <p class="section-label">Right</p>
+                                        <h3>{{ row.right.label }}</h3>
+                                        <p>{{ row.right.summary }}</p>
+                                        <a class="entry-link" href="/documents/{{ compare_view.right_document.id }}#{{ row.right.anchor }}">Open section</a>
+                                    {% else %}
+                                        <p class="panel-copy">No right-side match.</p>
+                                    {% endif %}
+                                </section>
+                            </div>
+                            {% if row.change %}
+                                <div class="compare-row__analysis">
+                                    <p class="panel-copy">{{ row.change.summary }}</p>
+                                    {% if row.change.details.instruction_clauses %}
+                                        <div class="compare-detail-block">
+                                            <strong>Instruction clauses</strong>
+                                            <ul>
+                                                {% for item in row.change.details.instruction_clauses %}
+                                                    <li>{{ item }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if row.change.details.added %}
+                                        <div class="compare-detail-block">
+                                            <strong>Added / right-side focus</strong>
+                                            <ul>
+                                                {% for item in row.change.details.added %}
+                                                    <li>{{ item }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if row.change.details.removed %}
+                                        <div class="compare-detail-block">
+                                            <strong>Removed / left-side focus</strong>
+                                            <ul>
+                                                {% for item in row.change.details.removed %}
+                                                    <li>{{ item }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if row.change.details.changed %}
+                                        <div class="compare-detail-block">
+                                            <strong>Rewritten clauses</strong>
+                                            <ul>
+                                                {% for item in row.change.details.changed %}
+                                                    <li>
+                                                        <span>Left: {{ item.left }}</span>
+                                                        <span>Right: {{ item.right }}</span>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if row.change.details.target_excerpt %}
+                                        <div class="compare-detail-block">
+                                            <strong>Target excerpt</strong>
+                                            <p>{{ row.change.details.target_excerpt }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% if compare_view.alignment.right_only %}
+                <section class="tone-panel">
+                    <div class="column-heading">
+                        <div>
+                            <p class="section-label">Unmatched right-side sections</p>
+                            <h2>Only in the right document</h2>
+                        </div>
+                    </div>
+                    <div class="relation-list">
+                        {% for row in compare_view.alignment.right_only[:8] %}
+                            <article class="relation-item-card">
+                                <strong>{{ row.right.label }}</strong>
+                                <span>{{ row.right.summary }}</span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+        </section>
+    </section>
+</main>
+{% endblock %}

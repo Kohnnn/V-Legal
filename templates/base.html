@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}V-Legal Prototype{% endblock %}</title>
+    <meta name="description" content="Document-first Vietnamese legal research prototype with grounded retrieval and local law tracking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;500;700&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='styles.css') }}">
+</head>
+<body>
+    <div class="page-frame">
+        <header class="site-header">
+            <div class="site-header__inner">
+                <a class="site-brand" href="/">
+                    <span class="site-brand__mark">VG</span>
+                    <span class="site-brand__copy">
+                        <strong>V-Legal</strong>
+                        <small>The Scholarly Archive Prototype</small>
+                    </span>
+                </a>
+                <div class="site-header__meta">
+                    <span class="meta-chip">Stage 1 / Hugging Face bootstrap corpus</span>
+                    <span class="meta-note">Official layers next: Phap dien, VBPL, Van ban Chinh phu</span>
+                </div>
+                <nav class="site-nav" aria-label="Primary">
+                    <a href="/">Archive</a>
+                    <a href="/tracking">Workbench</a>
+                    <a href="/#tracked-laws">Tracked Laws</a>
+                    <a href="/#source-roadmap">Roadmap</a>
+                </nav>
+            </div>
+        </header>
+        {% block content %}{% endblock %}
+    </div>
+    <script src="{{ request.url_for('static', path='app.js') }}"></script>
+</body>
+</html>
