@@ -1,0 +1,18 @@
+[build]
+  command = "echo 'Static assets only - backend runs on OCI'"
+  publish = "static"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.your-domain.com/api/:splat"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "18"

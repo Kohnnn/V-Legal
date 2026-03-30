@@ -9,10 +9,12 @@ description = "Prototype Vietnamese legal research app bootstrapped from the Hug
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "appwrite>=16.0.0",
   "datasets>=4.3.0",
   "fastapi>=0.116.0",
   "jinja2>=3.1.6",
   "markdown>=3.8",
+  "python-dotenv>=1.0.0",
   "python-multipart>=0.0.20",
   "pydantic-settings>=2.10.1",
   "uvicorn[standard]>=0.35.0",
