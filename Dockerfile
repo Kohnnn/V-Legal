@@ -4,6 +4,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/app/.cache \
     VLEGAL_ENVIRONMENT=production
 
 WORKDIR /app
