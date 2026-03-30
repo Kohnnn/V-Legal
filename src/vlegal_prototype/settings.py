@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import secrets
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,6 +22,13 @@ class Settings(BaseSettings):
     public_base_url: str = "http://127.0.0.1:8000"
     cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    appwrite_endpoint: str = "https://cloud.appwrite.io/v1"
+    appwrite_project_id: str = ""
+    appwrite_database_id: str = ""
+    appwrite_api_key: str = ""
+
+    secret_key: str = ""
+
     model_config = SettingsConfigDict(
         env_prefix="VLEGAL_",
         env_file=".env",
@@ -34,6 +44,11 @@ class Settings(BaseSettings):
             for item in self.cors_allowed_origins.split(",")
             if item.strip()
         ]
+
+    def get_secret_key(self) -> str:
+        if not self.secret_key:
+            self.secret_key = secrets.token_hex(32)
+        return self.secret_key
 
 
 @lru_cache(maxsize=1)

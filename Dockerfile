@@ -2,12 +2,9 @@
 
 FROM python:3.12-slim
 
-ARG VLEGAL_BOOTSTRAP_LIMIT=500
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    VLEGAL_ENVIRONMENT=production \
-    VLEGAL_BOOTSTRAP_LIMIT=${VLEGAL_BOOTSTRAP_LIMIT}
+    VLEGAL_ENVIRONMENT=production
 
 WORKDIR /app
 
@@ -20,9 +17,7 @@ COPY static ./static
 COPY templates ./templates
 
 RUN python -m pip install --no-cache-dir uv \
-    && mkdir -p data \
     && uv sync --frozen \
-    && uv run python scripts/prepare_demo_bundle.py --limit ${VLEGAL_BOOTSTRAP_LIMIT} --seed-only-taxonomy \
     && chown -R appuser:appuser /app
 
 USER appuser
