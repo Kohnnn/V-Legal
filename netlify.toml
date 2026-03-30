@@ -1,5 +1,5 @@
 [build]
-  command = "echo 'Static assets only - backend runs on OCI'"
+  command = "echo 'Static site - no build required'"
   publish = "static"
 
 [[headers]]
@@ -11,8 +11,9 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://api.your-domain.com/api/:splat"
+  to = "http://129.150.58.64:8000/api/:splat"
   status = 200
+  force = true
 
 [build.environment]
   NODE_VERSION = "18"

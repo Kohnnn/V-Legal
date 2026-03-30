@@ -9,6 +9,7 @@ src/vlegal_prototype/__init__.py
 src/vlegal_prototype/answering.py
 src/vlegal_prototype/app.py
 src/vlegal_prototype/citations.py
+src/vlegal_prototype/compare.py
 src/vlegal_prototype/db.py
 src/vlegal_prototype/hf_ingest.py
 src/vlegal_prototype/provenance.py
