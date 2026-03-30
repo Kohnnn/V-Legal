@@ -149,6 +149,19 @@ wheels = [
 ]
 
 [[package]]
+name = "appwrite"
+version = "17.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/40/b766dc34e7494d35bdca5578428ccaabbf8c3890b89b8893b9cacda8a7c1/appwrite-17.0.0.tar.gz", hash = "sha256:823d69d7e05b3b6b9c3dee00d2828c3c700d172b0a3a78d038df49fdc6177552", size = 118929, upload-time = "2026-03-26T06:26:41.746Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/5d/b026a9976b52d8270790073aaec483bef710b495abd80d7f8db792221868/appwrite-17.0.0-py3-none-any.whl", hash = "sha256:84cc197ac6d5064af78faed6f7b42ef8a09691d553e7966e4ab9ec8a80b01431", size = 203551, upload-time = "2026-03-26T06:26:40.547Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1390,22 +1403,26 @@ name = "v-legal-prototype"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "appwrite" },
     { name = "datasets" },
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "markdown" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "appwrite", specifier = ">=16.0.0" },
     { name = "datasets", specifier = ">=4.3.0" },
     { name = "fastapi", specifier = ">=0.116.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "pydantic-settings", specifier = ">=2.10.1" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
 ]

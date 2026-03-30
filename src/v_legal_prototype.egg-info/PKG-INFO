@@ -4,10 +4,12 @@ Version: 0.1.0
 Summary: Prototype Vietnamese legal research app bootstrapped from the Hugging Face legal corpus.
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
+Requires-Dist: appwrite>=16.0.0
 Requires-Dist: datasets>=4.3.0
 Requires-Dist: fastapi>=0.116.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: markdown>=3.8
+Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: uvicorn[standard]>=0.35.0
@@ -30,6 +32,8 @@ The current build already supports:
 - official-source lookup routes into VBPL and Van ban Chinh phu
 - a first-pass document relationship graph for amended, replaced, and guided links
 - a citation index for explicit cross-references between documents in the local corpus
+- saved research views and a tracked-law workbench with alert-ready monitoring
+- compare views for side-by-side cross-checking of related legal documents
 
 ## Product Direction
 
@@ -74,6 +78,7 @@ This prototype follows the design north star in `DESIGN.md`:
 - official-source provenance panel with VBPL and VNCP routes
 - relationship graph panel for inbound and outbound legal links
 - grounded brief panel scoped to the current document
+- compare links from citation and lifecycle panels into a dedicated cross-check view
 
 ### Official provenance layer
 
@@ -113,6 +118,22 @@ https://vanban.chinhphu.vn/?pageid=473&q={query}
 
 - lets users track laws directly from archive cards and document pages
 - shows tracked laws on the archive page
+- provides a `/tracking` workbench for alerts, watched dossiers, and saved research views
+
+### Research workbench
+
+- save archive filters as reusable research views
+- open saved views as repeatable monitoring lenses
+- surface tracked-law alerts from lifecycle links, citations, and newer same-subject documents
+- bundle all of this into a lightweight single-user workflow suitable for the current free-tier deployment model
+
+### Compare mode
+
+- compare two local documents side by side through `/compare/{left_document_id}/{right_document_id}`
+- prioritize explicit citation routes for lifecycle-style comparisons
+- align sections using citations first, then label/content heuristics when appropriate
+- expose unmatched sections to make version drift and missing coverage obvious
+- add first-pass diff summaries and clause-level change labeling for aligned sections
 
 ## Architecture
 
@@ -135,7 +156,10 @@ https://vanban.chinhphu.vn/?pageid=473&q={query}
 - `src/vlegal_prototype/provenance.py` - official-source route inference and provenance badges
 - `src/vlegal_prototype/relations.py` - relationship graph extraction and document-link queries
 - `src/vlegal_prototype/citations.py` - citation extraction, resolution, and citation graph queries
+- `src/vlegal_prototype/research.py` - saved research view helpers
+- `src/vlegal_prototype/compare.py` - side-by-side document cross-check and section alignment helpers
 - `src/vlegal_prototype/structure.py` - document section extraction and reader anchor generation
+- `src/vlegal_prototype/tracking.py` - tracked-law alert generation and workbench summaries
 - `scripts/bootstrap_hf_dataset.py` - import HF corpus into SQLite
 - `scripts/bootstrap_phapdien_taxonomy.py` - import official subject taxonomy
 - `scripts/bootstrap_citation_index.py` - rebuild explicit cross-document citations
@@ -237,6 +261,7 @@ Main tables:
 - `document_sections`
 - `citation_mentions`
 - `citation_links`
+- `research_views`
 
 ## Environment Variables
 
@@ -257,6 +282,14 @@ Common ones:
 - `VLEGAL_PHAPDIEN_MAIN_URL` - override the Phap dien source URL
 
 ## Deployment
+
+For a step-by-step deploy walkthrough, use:
+
+- `DEPLOYMENT.md`
+
+For the recommended split setup with frontend on Vercel and backend on OCI, use:
+
+- `DEPLOYMENT_OCI_VERCEL.md`
 
 ## Recommended free-tier deployment target
 
@@ -289,6 +322,7 @@ That means:
 - the bundled archive data prepared during build is fine for a preview
 - runtime edits to local SQLite can be lost after restart, redeploy, or spin-down
 - tracked-law state is therefore preview-grade only on a pure free-tier SQLite deploy
+- saved research views and workbench alert state are also preview-grade under the same constraint
 
 If you want durable tracking later, move tracked state to a managed database.
 
@@ -359,6 +393,8 @@ Current limitations:
 - VBPL and VNCP links are currently public search-route helpers, not guaranteed direct canonical detail links for every record
 - relationship graph links are heuristic and currently based on the imported local corpus, so sparse or missing links are expected in small demo bundles
 - citation resolution currently depends on local corpus coverage and exact/near-exact document number matching, so unresolved references still occur
+- tracked-law alerts currently derive from local graph/citation/same-subject signals and are meant as monitoring aids, not authoritative legal-status notifications
+- compare alignment is strongest when explicit citations exist; heuristic section matching is still intentionally conservative and incomplete
 - grounded brief output must still be checked against official sources
 
 ## Memory Bank
@@ -376,6 +412,6 @@ Project memory is tracked in:
 
 The next implementation step after this state is:
 
-1. build saved research views and tracked-law alerts on top of citations, provenance, and lifecycle graph
+1. add richer compare intelligence for old/current/amended documents, including diff summaries and clause-level change labeling
 
-That is the best follow-up now that taxonomy, provenance, and a first relationship graph are already in place.
+That is the best follow-up now that the first compare workflow, workbench, citation index, provenance layer, and lifecycle graph are already in place.
