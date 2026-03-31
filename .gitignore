@@ -9,3 +9,6 @@ data/*.log
 .env.example
 
 NUL
+
+# Local Netlify folder
+.netlify

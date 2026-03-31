@@ -125,4 +125,96 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-track-button]").forEach((button) => {
     button.addEventListener("click", handleTrackButtonClick);
   });
+
+  const compareBarId = "global-compare-bar";
+  let selected = [];
+
+  function getCompareBar() {
+    return document.getElementById(compareBarId);
+  }
+
+  function buildCompareBar() {
+    const bar = document.createElement("div");
+    bar.className = "compare-bar";
+    bar.id = compareBarId;
+    bar.innerHTML = `
+      <span class="compare-bar__label">Compare</span>
+      <div class="compare-bar__docs" id="compare-bar-docs"></div>
+      <div class="compare-bar__actions">
+        <a class="compare-bar__clear-btn" href="#" id="compare-clear">Clear</a>
+        <a class="compare-bar__compare-btn" href="#" id="compare-go">Compare Now</a>
+      </div>
+    `;
+    document.body.appendChild(bar);
+
+    bar.querySelector("#compare-clear").addEventListener("click", (e) => {
+      e.preventDefault();
+      clearCompare();
+    });
+    bar.querySelector("#compare-go").addEventListener("click", (e) => {
+      e.preventDefault();
+      goCompare();
+    });
+  }
+
+  function updateCompareBar() {
+    const bar = getCompareBar();
+    if (!bar) return;
+    const docsEl = bar.querySelector("#compare-bar-docs");
+    if (selected.length === 0) {
+      docsEl.textContent = "Select documents above to compare";
+    } else {
+      docsEl.innerHTML = selected
+        .map((id) => `<span class="compare-bar__doc">Doc #${id}</span>`)
+        .join("");
+    }
+    const goBtn = bar.querySelector("#compare-go");
+    goBtn.style.visibility = selected.length >= 2 ? "visible" : "hidden";
+  }
+
+  function clearCompare() {
+    selected = [];
+    document.querySelectorAll(".compare-select-btn.is-selected").forEach((btn) => {
+      btn.classList.remove("is-selected");
+      btn.textContent = "Compare";
+    });
+    const bar = getCompareBar();
+    if (bar) bar.remove();
+  }
+
+  function goCompare() {
+    if (selected.length < 2) return;
+    window.location.href = `/compare/${selected[0]}/${selected[1]}`;
+  }
+
+  document.querySelectorAll("[data-compare-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = parseInt(btn.dataset.compareId, 10);
+      if (btn.classList.contains("is-selected")) {
+        selected = selected.filter((s) => s !== id);
+        btn.classList.remove("is-selected");
+        btn.textContent = "Compare";
+      } else {
+        if (selected.length >= 4) {
+          const oldest = selected.shift();
+          const oldBtn = document.querySelector(`[data-compare-id="${oldest}"]`);
+          if (oldBtn) {
+            oldBtn.classList.remove("is-selected");
+            oldBtn.textContent = "Compare";
+          }
+        }
+        selected.push(id);
+        btn.classList.add("is-selected");
+        btn.textContent = "Selected";
+      }
+
+      if (selected.length > 0) {
+        if (!getCompareBar()) buildCompareBar();
+        updateCompareBar();
+      } else {
+        const bar = getCompareBar();
+        if (bar) bar.remove();
+      }
+    });
+  });
 });
