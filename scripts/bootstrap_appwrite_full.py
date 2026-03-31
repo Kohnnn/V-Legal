@@ -12,17 +12,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from datasets import load_dataset
-
 from appwrite.client import Client
 from appwrite.services.databases import Databases
 from appwrite.query import Query
 
 from vlegal_prototype.settings import get_settings
 from vlegal_prototype.hf_ingest import (
-    split_into_passages,
-    normalize_text,
     build_excerpt,
+    normalize_text,
+    split_into_passages,
+    stream_hf_records,
 )
 
 
@@ -143,7 +142,7 @@ def parse_document(raw_content: str, doc_id: int) -> dict:
         "plain_content": plain,
         "excerpt": excerpt,
         "year": year,
-        "source": "th1nhng0/vietnamese-legal-documents",
+        "source": get_settings().dataset_name,
         "passages": passages,
     }
 
@@ -232,7 +231,7 @@ def main() -> None:
     COMMIT_EVERY = 500
     PAUSE_EVERY = 2000
 
-    ds = load_dataset(settings.dataset_name, split="data", streaming=True)
+    ds = stream_hf_records()
 
     total_docs = 0
     total_passages = 0
@@ -244,7 +243,7 @@ def main() -> None:
 
     for i, row in enumerate(ds):
         try:
-            record = parse_document(row["content"], row["id"])
+            record = row
             batch_docs.append(record)
         except Exception as e:
             total_errors += 1

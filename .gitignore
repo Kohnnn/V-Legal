@@ -5,6 +5,16 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/*.log
+data/hf_import_checkpoint.json
+data/hf_full_import.log
+data/hf_full_import.err.log
+data/full_hf.sqlite
+data/full_hf.sqlite-shm
+data/full_hf.sqlite-wal
+data/full_hf_checkpoint.json
+data/full_hf_import.log
+data/full_hf_import.err.log
+data/ui_check.log
 .env
 .env.example
 
@@ -12,3 +22,8 @@ NUL
 
 # Local Netlify folder
 .netlify
+
+# Agent and local tooling artifacts
+.agent/
+.playwright-cli/
+deployed-screenshots/

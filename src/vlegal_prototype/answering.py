@@ -67,7 +67,7 @@ def build_grounded_brief(question: str, passages: list[dict]) -> dict:
             "summary": "Try a more specific question, a document number, or import a larger dataset sample first.",
             "findings": [],
             "sources": [],
-            "disclaimer": "Prototype mode: this brief only reflects the currently imported Hugging Face corpus sample.",
+            "disclaimer": "Prototype mode: this brief only reflects the currently imported local corpus.",
         }
 
     query_terms = extract_terms(question)
@@ -146,6 +146,6 @@ def build_grounded_brief(question: str, passages: list[dict]) -> dict:
         "sources": source_documents,
         "disclaimer": (
             "Prototype mode: verify all findings against official sources before relying on them. "
-            "This brief is grounded in the locally imported Hugging Face dataset sample, not yet the official-source pipeline."
+            "This brief is grounded in the locally imported corpus, not yet the official-source pipeline."
         ),
     }

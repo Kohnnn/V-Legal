@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: v-legal-prototype
 Version: 0.1.0
-Summary: Prototype Vietnamese legal research app bootstrapped from the Hugging Face legal corpus.
+Summary: Prototype Vietnamese legal research app for a document-first Vietnamese legal corpus viewer.
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 Requires-Dist: appwrite>=16.0.0
@@ -49,7 +49,7 @@ This prototype follows the design north star in `DESIGN.md`:
 
 ### Data sources in the current prototype
 
-- Hugging Face dataset: `th1nhng0/vietnamese-legal-documents`
+- Hugging Face dataset: `Huymaeco/vietnamese-legal-documents`
 - Official Phap dien subject taxonomy seeded from `https://phapdien.moj.gov.vn/TraCuuPhapDien/MainBoPD.aspx`
 
 ### Planned next source layers
@@ -212,6 +212,12 @@ Continue after the first 2,000 docs:
 
 ```bash
 uv run python scripts/bootstrap_hf_dataset.py --skip 2000 --limit 2000
+```
+
+Run a resumable large import with checkpointing:
+
+```bash
+uv run python scripts/bootstrap_hf_full_corpus.py --reset --chunk-size 5000
 ```
 
 Refresh taxonomy from the checked-in official seed:

@@ -3,172 +3,148 @@
 {% block title %}Compare Documents - V-Legal{% endblock %}
 
 {% block content %}
-<main class="compare-page">
-    <section class="archive-masthead">
-        <div class="masthead-copy">
-            <p class="section-label">Clause-level cross-check</p>
-            <h1>Compare legal documents side by side with citations, lifecycle links, and section alignment.</h1>
-            <p class="masthead-lead">
-                This compare mode helps verify how an amended, cited, or related document maps onto another record in the local corpus.
-                It uses explicit citations first, then section label and content alignment as fallback.
-            </p>
+<main class="compare-page compare-page--portal">
+    <header class="compare-shell-head">
+        <div class="compare-shell-head__titles">
+            <p class="section-label">Doi chieu van ban</p>
+            <h1>So sanh theo dieu, muc va noi dung gan nhat.</h1>
+            <p class="panel-copy">Che do nay uu tien dan chieu ro rang truoc, sau do moi canh hang theo nhan va do tuong dong noi dung.</p>
         </div>
-        <div class="masthead-stats">
-            <article>
-                <span>Matched sections</span>
-                <strong>{{ compare_view.alignment.matched_count }}</strong>
-            </article>
-            <article>
-                <span>Explicit citation matches</span>
-                <strong>{{ compare_view.alignment.explicit_match_count }}</strong>
-            </article>
-            <article>
-                <span>Instruction matches</span>
-                <strong>{{ compare_view.alignment.change_counts.instruction }}</strong>
-            </article>
-            <article>
-                <span>Left-only sections</span>
-                <strong>{{ compare_view.alignment.left_only_count }}</strong>
-            </article>
-            <article>
-                <span>Right-only sections</span>
-                <strong>{{ compare_view.alignment.right_only_count }}</strong>
-            </article>
+        <div class="compare-shell-head__actions">
+            <a class="entry-link" href="/documents/{{ compare_view.left_document.id }}">Open left</a>
+            <a class="entry-link" href="/documents/{{ compare_view.right_document.id }}">Open right</a>
+            <a class="entry-link" href="/compare/{{ compare_view.right_document.id }}/{{ compare_view.left_document.id }}">Swap</a>
         </div>
-    </section>
+    </header>
 
-    <section class="compare-docs">
-        <article class="compare-doc-card">
-            <p class="section-label">Left document</p>
-            <h2><a href="/documents/{{ compare_view.left_document.id }}">{{ compare_view.left_document.title }}</a></h2>
-            <p>{{ compare_view.left_document.document_number or compare_view.left_document.legal_type or "Document" }}</p>
+    <section class="compare-pairbar">
+        <article class="compare-pairbar__doc">
+            <p class="section-label">Van ban trai</p>
+            <h2>{{ compare_view.left_document.title }}</h2>
+            <span>{{ compare_view.left_document.document_number or compare_view.left_document.legal_type or "Document" }}</span>
         </article>
-        <div class="compare-doc-actions">
-            <a class="entry-link entry-link--full" href="/compare/{{ compare_view.right_document.id }}/{{ compare_view.left_document.id }}">Swap sides</a>
-        </div>
-        <article class="compare-doc-card">
-            <p class="section-label">Right document</p>
-            <h2><a href="/documents/{{ compare_view.right_document.id }}">{{ compare_view.right_document.title }}</a></h2>
-            <p>{{ compare_view.right_document.document_number or compare_view.right_document.legal_type or "Document" }}</p>
+        <article class="compare-pairbar__doc">
+            <p class="section-label">Van ban phai</p>
+            <h2>{{ compare_view.right_document.title }}</h2>
+            <span>{{ compare_view.right_document.document_number or compare_view.right_document.legal_type or "Document" }}</span>
         </article>
     </section>
 
-    <section class="archive-grid">
-        <aside class="archive-rail archive-rail--left">
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Direct legal links</p>
-                    <h2>Relationship signals</h2>
+    <nav class="viewer-tabs viewer-tabs--compare" aria-label="Compare sections">
+        <a class="is-active" href="#matched-sections">Khớp {{ compare_view.alignment.matched_count }}</a>
+        <a href="#left-only-sections">Chi ben trai {{ compare_view.alignment.left_only_count }}</a>
+        <a href="#right-only-sections">Chi ben phai {{ compare_view.alignment.right_only_count }}</a>
+        <a href="#pair-links">Lien ket</a>
+    </nav>
+
+    <section class="compare-summary-strip" id="pair-links">
+        <article>
+            <span>Matched</span>
+            <strong>{{ compare_view.alignment.matched_count }}</strong>
+        </article>
+        <article>
+            <span>Explicit citations</span>
+            <strong>{{ compare_view.alignment.explicit_match_count }}</strong>
+        </article>
+        <article>
+            <span>Rewritten</span>
+            <strong>{{ compare_view.alignment.change_counts.rewritten }}</strong>
+        </article>
+        <article>
+            <span>Expanded</span>
+            <strong>{{ compare_view.alignment.change_counts.expanded }}</strong>
+        </article>
+        <article>
+            <span>Reduced</span>
+            <strong>{{ compare_view.alignment.change_counts.reduced }}</strong>
+        </article>
+    </section>
+
+    <section class="compare-layout">
+        <aside class="compare-rail">
+            <section class="viewer-sidecard">
+                <div class="viewer-sidecard__heading">
+                    <p class="section-label">Lien ket cap van ban</p>
+                    <h2>Tin hieu phap ly</h2>
                 </div>
                 {% if compare_view.pair_relations %}
-                    <div class="relation-list">
+                    <div class="viewer-link-list viewer-link-list--compact">
                         {% for item in compare_view.pair_relations %}
-                            <article class="relation-item-card">
-                                <strong>{{ item.label }}</strong>
-                                <span>{{ "Left to right" if item.direction == "left_to_right" else "Right to left" }}</span>
+                            <article class="viewer-link-item viewer-link-item--compact">
+                                <div class="viewer-link-item__body">
+                                    <strong>{{ item.label }}</strong>
+                                    <span>{{ "Left to right" if item.direction == "left_to_right" else "Right to left" }}</span>
+                                </div>
                             </article>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="panel-copy">No direct lifecycle graph link was inferred between these two documents.</p>
+                    <p class="panel-copy">No direct lifecycle link inferred between this pair.</p>
                 {% endif %}
             </section>
 
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Explicit citations</p>
-                    <h2>Citation route summary</h2>
+            <section class="viewer-sidecard">
+                <div class="viewer-sidecard__heading">
+                    <p class="section-label">Dan chieu truc tiep</p>
+                    <h2>Citation route</h2>
                 </div>
-                <div class="relation-list">
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.pair_citations.left_to_right | length }}</strong>
-                        <span>Left document citations to right</span>
-                    </article>
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.pair_citations.right_to_left | length }}</strong>
-                        <span>Right document citations to left</span>
-                    </article>
+                <div class="viewer-statlist">
+                    <article><span>Left to right</span><strong>{{ compare_view.pair_citations.left_to_right | length }}</strong></article>
+                    <article><span>Right to left</span><strong>{{ compare_view.pair_citations.right_to_left | length }}</strong></article>
                 </div>
             </section>
         </aside>
 
-        <section class="archive-column">
-            <section class="tone-panel">
-                <div class="column-heading">
-                    <div>
-                        <p class="section-label">Aligned sections</p>
-                        <h2>Cross-check map</h2>
-                    </div>
+        <section class="compare-workspace">
+            <section id="matched-sections">
+                <div class="compare-section-head">
+                    <p class="section-label">Noi dung doi chieu</p>
+                    <h2>Cac muc duoc canh hang</h2>
                 </div>
-                {% if compare_view.lifecycle_compare %}
-                    <p class="panel-copy">
-                        This pair looks like a lifecycle comparison, so the view prioritizes explicit citation routes over broad heuristic section matching.
-                    </p>
-                {% endif %}
-                <div class="compare-change-summary">
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.alignment.change_counts.unchanged }}</strong>
-                        <span>Unchanged</span>
-                    </article>
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.alignment.change_counts.expanded }}</strong>
-                        <span>Expanded</span>
-                    </article>
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.alignment.change_counts.reduced }}</strong>
-                        <span>Reduced</span>
-                    </article>
-                    <article class="relation-item-card">
-                        <strong>{{ compare_view.alignment.change_counts.rewritten }}</strong>
-                        <span>Rewritten</span>
-                    </article>
-                </div>
-                <div class="compare-grid">
+                <div class="compare-grid compare-grid--portal">
                     {% for row in compare_view.alignment.rows %}
-                        <article class="compare-row compare-row--{{ row.kind }}">
-                            <div class="compare-row__meta">
+                        <article class="compare-row compare-row--{{ row.kind }}"{% if row.kind == 'left-only' %} id="left-only-sections"{% endif %}>
+                            <div class="compare-row__meta compare-row__meta--portal">
                                 <span class="meta-chip meta-chip--soft">{{ row.reason }}</span>
                                 {% if row.score %}<span>Similarity {{ row.score }}</span>{% endif %}
                                 {% if row.change %}<span>{{ row.change.change_label }}</span>{% endif %}
                             </div>
-                            <div class="compare-row__columns">
+                            <div class="compare-row__columns compare-row__columns--portal">
                                 <section class="compare-column compare-column--left">
                                     {% if row.left %}
-                                        <p class="section-label">Left</p>
-                                        <h3>{{ row.left.label }}</h3>
-                                        <p>{{ row.left.summary }}</p>
-                                        <a class="entry-link" href="/documents/{{ compare_view.left_document.id }}#{{ row.left.anchor }}">Open section</a>
+                                        <div class="compare-column__head">
+                                            <p class="section-label">Trai</p>
+                                            <h3>{{ row.left.label }}</h3>
+                                            <a class="entry-link" href="/documents/{{ compare_view.left_document.id }}#{{ row.left.anchor }}">Mo dung vi tri</a>
+                                        </div>
+                                        <div class="compare-text-block">
+                                            <p>{{ row.left.text }}</p>
+                                        </div>
                                     {% else %}
-                                        <p class="panel-copy">No left-side match.</p>
+                                        <p class="panel-copy">No left-side section aligned here.</p>
                                     {% endif %}
                                 </section>
                                 <section class="compare-column compare-column--right">
                                     {% if row.right %}
-                                        <p class="section-label">Right</p>
-                                        <h3>{{ row.right.label }}</h3>
-                                        <p>{{ row.right.summary }}</p>
-                                        <a class="entry-link" href="/documents/{{ compare_view.right_document.id }}#{{ row.right.anchor }}">Open section</a>
+                                        <div class="compare-column__head">
+                                            <p class="section-label">Phai</p>
+                                            <h3>{{ row.right.label }}</h3>
+                                            <a class="entry-link" href="/documents/{{ compare_view.right_document.id }}#{{ row.right.anchor }}">Mo dung vi tri</a>
+                                        </div>
+                                        <div class="compare-text-block">
+                                            <p>{{ row.right.text }}</p>
+                                        </div>
                                     {% else %}
-                                        <p class="panel-copy">No right-side match.</p>
+                                        <p class="panel-copy">No right-side section aligned here.</p>
                                     {% endif %}
                                 </section>
                             </div>
                             {% if row.change %}
-                                <div class="compare-row__analysis">
+                                <div class="compare-row__analysis compare-row__analysis--portal">
                                     <p class="panel-copy">{{ row.change.summary }}</p>
-                                    {% if row.change.details.instruction_clauses %}
-                                        <div class="compare-detail-block">
-                                            <strong>Instruction clauses</strong>
-                                            <ul>
-                                                {% for item in row.change.details.instruction_clauses %}
-                                                    <li>{{ item }}</li>
-                                                {% endfor %}
-                                            </ul>
-                                        </div>
-                                    {% endif %}
                                     {% if row.change.details.added %}
                                         <div class="compare-detail-block">
-                                            <strong>Added / right-side focus</strong>
+                                            <strong>Noi dung them ben phai</strong>
                                             <ul>
                                                 {% for item in row.change.details.added %}
                                                     <li>{{ item }}</li>
@@ -178,7 +154,7 @@
                                     {% endif %}
                                     {% if row.change.details.removed %}
                                         <div class="compare-detail-block">
-                                            <strong>Removed / left-side focus</strong>
+                                            <strong>Noi dung mat di o ben phai</strong>
                                             <ul>
                                                 {% for item in row.change.details.removed %}
                                                     <li>{{ item }}</li>
@@ -186,23 +162,14 @@
                                             </ul>
                                         </div>
                                     {% endif %}
-                                    {% if row.change.details.changed %}
+                                    {% if row.change.details.instruction_clauses %}
                                         <div class="compare-detail-block">
-                                            <strong>Rewritten clauses</strong>
+                                            <strong>Dieu khoan chi dan</strong>
                                             <ul>
-                                                {% for item in row.change.details.changed %}
-                                                    <li>
-                                                        <span>Left: {{ item.left }}</span>
-                                                        <span>Right: {{ item.right }}</span>
-                                                    </li>
+                                                {% for item in row.change.details.instruction_clauses %}
+                                                    <li>{{ item }}</li>
                                                 {% endfor %}
                                             </ul>
-                                        </div>
-                                    {% endif %}
-                                    {% if row.change.details.target_excerpt %}
-                                        <div class="compare-detail-block">
-                                            <strong>Target excerpt</strong>
-                                            <p>{{ row.change.details.target_excerpt }}</p>
                                         </div>
                                     {% endif %}
                                 </div>
@@ -213,18 +180,21 @@
             </section>
 
             {% if compare_view.alignment.right_only %}
-                <section class="tone-panel">
-                    <div class="column-heading">
-                        <div>
-                            <p class="section-label">Unmatched right-side sections</p>
-                            <h2>Only in the right document</h2>
-                        </div>
+                <section id="right-only-sections" class="compare-unmatched-block">
+                    <div class="compare-section-head">
+                        <p class="section-label">Phan chi xuat hien ben phai</p>
+                        <h2>Muc chua duoc canh hang</h2>
                     </div>
-                    <div class="relation-list">
-                        {% for row in compare_view.alignment.right_only[:8] %}
-                            <article class="relation-item-card">
-                                <strong>{{ row.right.label }}</strong>
-                                <span>{{ row.right.summary }}</span>
+                    <div class="viewer-link-list">
+                        {% for row in compare_view.alignment.right_only %}
+                            <article class="viewer-link-item">
+                                <div class="viewer-link-item__body">
+                                    <strong>{{ row.right.label }}</strong>
+                                    <span>{{ row.right.summary }}</span>
+                                </div>
+                                <div class="relation-item__actions relation-item__actions--portal">
+                                    <a href="/documents/{{ compare_view.right_document.id }}#{{ row.right.anchor }}">Open</a>
+                                </div>
                             </article>
                         {% endfor %}
                     </div>

@@ -13,7 +13,8 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     app_name: str = "V-Legal Prototype"
     environment: str = "development"
-    dataset_name: str = "th1nhng0/vietnamese-legal-documents"
+    dataset_name: str = "Huymaeco/vietnamese-legal-documents"
+    hf_token: str = ""
     database_path: Path = BASE_DIR / "data" / "vlegal.sqlite"
     default_import_limit: int = 500
     search_page_size: int = 12

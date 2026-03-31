@@ -19,19 +19,15 @@ from vlegal_prototype.hf_ingest import (
     normalize_text,
     build_excerpt,
 )
-
-
-APPWRITE_ENDPOINT = "https://sgp.cloud.appwrite.io/v1"
-APPWRITE_PROJECT = "69caaf1c0017a098ce99"
-APPWRITE_KEY = "standard_280facd3ff0f728d3c185180323d34b591a691b8c8f05aadbb43e579b61bcef26f806f62e97bac8876dc548a5eb77543b328a9697b1d79f7eef8bf0aaeac619efef7f6231fe99dbd49b7cf6c176bc6590c94c94a421287efde7b72dced38446c3aea3f8eccfc742f6428e4e90ae67ec4b5c2df793d9707106670c63ba3882bce"
-DATABASE_ID = "69caaf6900186e144449"
+from vlegal_prototype.settings import get_settings
 
 
 def get_client() -> TablesDB:
+    settings = get_settings()
     client = Client()
-    client.set_endpoint(APPWRITE_ENDPOINT)
-    client.set_project(APPWRITE_PROJECT)
-    client.set_key(APPWRITE_KEY)
+    client.set_endpoint(settings.appwrite_endpoint)
+    client.set_project(settings.appwrite_project_id)
+    client.set_key(settings.appwrite_api_key)
     return TablesDB(client)
 
 
@@ -59,12 +55,22 @@ def parse_doc_from_appwrite(doc) -> dict | None:
 
 
 def main() -> None:
+    settings = get_settings()
+    if (
+        not settings.appwrite_project_id
+        or not settings.appwrite_database_id
+        or not settings.appwrite_api_key
+    ):
+        raise SystemExit(
+            "Set VLEGAL_APPWRITE_PROJECT_ID, VLEGAL_APPWRITE_DATABASE_ID, and VLEGAL_APPWRITE_API_KEY first."
+        )
+
     print("Connecting to Appwrite...")
     tbdb = get_client()
 
     print("Fetching documents from Appwrite (limit=500)...")
     result = tbdb.list_rows(
-        database_id=DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id="documents",
         queries=[Query.limit(500)],
     )

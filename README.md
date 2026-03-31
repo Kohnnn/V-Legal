@@ -33,7 +33,7 @@ This prototype follows the design north star in `DESIGN.md`:
 
 ### Data sources in the current prototype
 
-- Hugging Face dataset: `th1nhng0/vietnamese-legal-documents`
+- Hugging Face dataset: `Huymaeco/vietnamese-legal-documents`
 - Official Phap dien subject taxonomy seeded from `https://phapdien.moj.gov.vn/TraCuuPhapDien/MainBoPD.aspx`
 
 ### Planned next source layers
@@ -174,6 +174,12 @@ uv run python scripts/bootstrap_hf_dataset.py --limit 500 --reset
 uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
 ```
 
+If the dataset requires authenticated access in your environment, set a token first:
+
+```bash
+export VLEGAL_HF_TOKEN=your_hf_token
+```
+
 ### Run the app
 
 ```bash
@@ -196,6 +202,19 @@ Continue after the first 2,000 docs:
 
 ```bash
 uv run python scripts/bootstrap_hf_dataset.py --skip 2000 --limit 2000
+```
+
+Run a resumable large import with checkpointing:
+
+```bash
+uv run python scripts/bootstrap_hf_full_corpus.py --reset --chunk-size 5000
+```
+
+For a dedicated full-corpus database file, point the app at a separate SQLite path:
+
+```bash
+export VLEGAL_DATABASE_PATH=data/full_hf.sqlite
+uv run python scripts/bootstrap_hf_full_corpus.py --chunk-size 5000 --checkpoint-path data/full_hf_checkpoint.json
 ```
 
 Refresh taxonomy from the checked-in official seed:

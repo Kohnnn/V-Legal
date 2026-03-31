@@ -127,7 +127,24 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const compareBarId = "global-compare-bar";
+  const compareStorageKey = "vlegal-compare-documents";
   let selected = [];
+
+  function saveSelected() {
+    window.localStorage.setItem(compareStorageKey, JSON.stringify(selected));
+  }
+
+  function loadSelected() {
+    try {
+      const raw = window.localStorage.getItem(compareStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      selected = Array.isArray(parsed)
+        ? parsed.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+        : [];
+    } catch (error) {
+      selected = [];
+    }
+  }
 
   function getCompareBar() {
     return document.getElementById(compareBarId);
@@ -172,12 +189,19 @@ document.addEventListener("DOMContentLoaded", () => {
     goBtn.style.visibility = selected.length >= 2 ? "visible" : "hidden";
   }
 
+  function syncCompareButtons() {
+    document.querySelectorAll("[data-compare-id]").forEach((btn) => {
+      const id = Number(btn.dataset.compareId);
+      const isSelected = selected.includes(id);
+      btn.classList.toggle("is-selected", isSelected);
+      btn.textContent = isSelected ? "Selected" : "Compare";
+    });
+  }
+
   function clearCompare() {
     selected = [];
-    document.querySelectorAll(".compare-select-btn.is-selected").forEach((btn) => {
-      btn.classList.remove("is-selected");
-      btn.textContent = "Compare";
-    });
+    saveSelected();
+    syncCompareButtons();
     const bar = getCompareBar();
     if (bar) bar.remove();
   }
@@ -192,21 +216,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const id = parseInt(btn.dataset.compareId, 10);
       if (btn.classList.contains("is-selected")) {
         selected = selected.filter((s) => s !== id);
-        btn.classList.remove("is-selected");
-        btn.textContent = "Compare";
       } else {
         if (selected.length >= 4) {
           const oldest = selected.shift();
-          const oldBtn = document.querySelector(`[data-compare-id="${oldest}"]`);
-          if (oldBtn) {
-            oldBtn.classList.remove("is-selected");
-            oldBtn.textContent = "Compare";
-          }
         }
         selected.push(id);
-        btn.classList.add("is-selected");
-        btn.textContent = "Selected";
       }
+
+      saveSelected();
+      syncCompareButtons();
 
       if (selected.length > 0) {
         if (!getCompareBar()) buildCompareBar();
@@ -217,4 +235,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  loadSelected();
+  syncCompareButtons();
+  if (selected.length > 0) {
+    buildCompareBar();
+    updateCompareBar();
+  }
 });
