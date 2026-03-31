@@ -175,17 +175,22 @@ def prepare_record(metadata: dict, content: dict) -> dict:
 
 def stream_hf_records(limit: int | None = None, skip: int = 0) -> Iterable[dict]:
     settings = get_settings()
+    dataset_kwargs = {
+        "split": "data",
+        "streaming": True,
+    }
+    if settings.hf_token:
+        dataset_kwargs["token"] = settings.hf_token
+
     metadata_stream = load_dataset(
         settings.dataset_name,
         "metadata",
-        split="data",
-        streaming=True,
+        **dataset_kwargs,
     )
     content_stream = load_dataset(
         settings.dataset_name,
         "content",
-        split="data",
-        streaming=True,
+        **dataset_kwargs,
     )
 
     if skip:

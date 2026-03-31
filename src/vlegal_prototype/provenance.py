@@ -172,7 +172,7 @@ def build_provenance_profile(document: dict) -> dict:
 
     summary = (
         f"This record is classified as {family_label.lower()} with {scope_label.lower()}. "
-        "Use the routes below to cross-check the bootstrap corpus against official Vietnamese public sources."
+        "Use the routes below to cross-check the local corpus against official Vietnamese public sources."
     )
 
     return {
@@ -182,8 +182,8 @@ def build_provenance_profile(document: dict) -> dict:
         "family_label": family_label,
         "routes": routes,
         "corpus_source": {
-            "label": "Bootstrap corpus source",
-            "short_label": "HF/TVPL",
+            "label": "Local corpus source",
+            "short_label": "Corpus",
             "url": document.get("url") or VBPL_PORTAL_URL,
         },
     }

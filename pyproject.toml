@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "v-legal-prototype"
 version = "0.1.0"
-description = "Prototype Vietnamese legal research app bootstrapped from the Hugging Face legal corpus."
+description = "Prototype Vietnamese legal research app for a document-first Vietnamese legal corpus viewer."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
