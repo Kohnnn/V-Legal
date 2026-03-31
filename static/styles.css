@@ -541,6 +541,89 @@ select:focus {
   color: #7a2323;
 }
 
+.compare-select-btn {
+  padding: 0 12px;
+  background: var(--surface-high);
+  color: var(--ink);
+  border: 1px solid var(--ghost-line);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.compare-select-btn.is-selected {
+  background: var(--navy);
+  color: var(--background);
+  border-color: var(--navy);
+}
+
+.compare-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--navy);
+  color: var(--background);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  z-index: 100;
+  font-size: 0.875rem;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.18);
+}
+
+.compare-bar__label {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.compare-bar__docs {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+}
+
+.compare-bar__doc {
+  background: rgba(255,255,255,0.12);
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.compare-bar__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.compare-bar__actions a,
+.compare-bar__actions button {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+}
+
+.compare-bar__compare-btn {
+  background: var(--background);
+  color: var(--navy);
+}
+
+.compare-bar__clear-btn {
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
 .entry-link,
 .pagination-link,
 .back-link {

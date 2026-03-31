@@ -9,8 +9,7 @@
             <p class="section-label">Creative North Star / The Scholarly Archive</p>
             <h1>Vietnamese law, staged like a government gazette and queried like a modern research system.</h1>
             <p class="masthead-lead">
-                The current build uses the Hugging Face legal corpus as a fast prototype surface.
-                The experience already centers clean reading, grounded retrieval, and personal tracking rather than a cluttered portal aesthetic.
+                Search and compare Vietnamese legal documents with grounded retrieval, citation mapping, and personal tracking.
             </p>
         </div>
         <div class="masthead-stats">
@@ -156,19 +155,15 @@
             <section class="tone-panel">
                 <div class="panel-heading">
                     <p class="section-label">Grounded retrieval</p>
-                    <h2>Ask the current corpus</h2>
+                    <h2>Ask the corpus</h2>
                 </div>
                 <form class="ask-form" data-ask-form>
                     <label for="question">Question</label>
-                    <textarea id="question" name="question" rows="4" placeholder="Vi du: Van ban nao hien dang dieu chinh cong nghiep van hoa?" {% if dataset_empty %}disabled{% endif %}></textarea>
-                    <button type="submit" class="button-primary" {% if dataset_empty %}disabled{% endif %}>Generate Brief</button>
+                    <textarea id="question" name="question" rows="4" placeholder="Vi du: Van ban nao dieu chinh cong nghiep van hoa?"></textarea>
+                    <button type="submit" class="button-primary">Generate Brief</button>
                 </form>
                 <div class="ask-output muted" data-ask-output>
-                    {% if dataset_empty %}
-                        Import a starter sample first with <code>uv run python scripts/bootstrap_hf_dataset.py --limit 500</code>.
-                    {% else %}
-                        This brief only cites passages retrieved from the local sample. It is intentionally conservative.
-                    {% endif %}
+                    Answer grounded in the local 478-document corpus.
                 </div>
             </section>
         </aside>
@@ -195,8 +190,8 @@
             {% if dataset_empty %}
                 <section class="empty-block">
                     <h3>No local archive yet</h3>
-                    <p>Seed the prototype corpus first, then expand in chunks as the UX stabilizes.</p>
-                    <code>uv run python scripts/bootstrap_hf_dataset.py --limit 500</code>
+                    <p>Seed the prototype corpus from Appwrite, then expand as needed.</p>
+                    <code>uv run python scripts/bootstrap_appwrite_to_sqlite.py</code>
                 </section>
             {% elif results["items"] %}
                 <div class="archive-list">
@@ -230,7 +225,8 @@
                                 {% if item.legal_sectors %}
                                     <span class="archive-entry__sectors">{{ item.legal_sectors }}</span>
                                 {% endif %}
-                                <a href="/documents/{{ item.id }}" class="entry-link">Open record</a>
+                                <a href="/documents/{{ item.id }}" class="entry-link">Read</a>
+                                <button type="button" class="compare-select-btn" data-compare-id="{{ item.id }}" title="Add to compare">Compare</button>
                             </div>
                         </article>
                     {% endfor %}
@@ -256,42 +252,8 @@
         <aside class="archive-rail archive-rail--right">
             <section class="tone-panel">
                 <div class="panel-heading">
-                    <p class="section-label">Research memory</p>
-                    <h2>Saved research views</h2>
-                </div>
-                {% if research_views %}
-                    <div class="recent-list">
-                        {% for item in research_views %}
-                            <a class="recent-item" href="/research/views/{{ item.id }}">
-                                <strong>{{ item.name }}</strong>
-                                <span>{{ item.query or item.topic_slug or item.legal_type or 'Saved filter' }}</span>
-                            </a>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="panel-copy">Save a search above to build a reusable research view for repeated cross-checking.</p>
-                {% endif %}
-            </section>
-
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Archive composition</p>
-                    <h2>Dominant legal types</h2>
-                </div>
-                <div class="rank-list">
-                    {% for item in top_legal_types %}
-                        <div class="rank-item">
-                            <strong>{{ item.legal_type }}</strong>
-                            <span>{{ item.total }} records</span>
-                        </div>
-                    {% endfor %}
-                </div>
-            </section>
-
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Recent archive surface</p>
-                    <h2>Newest imported records</h2>
+                    <p class="section-label">Recent additions</p>
+                    <h2>Newest records</h2>
                 </div>
                 <div class="recent-list">
                     {% for item in recent_documents %}
@@ -301,20 +263,6 @@
                         </a>
                     {% endfor %}
                 </div>
-            </section>
-
-            <section class="tone-panel" id="source-roadmap">
-                <div class="panel-heading">
-                    <p class="section-label">Recommended next step</p>
-                    <h2>Authority layering roadmap</h2>
-                </div>
-                <ol class="roadmap-list">
-                    <li><strong>Now:</strong> HF corpus for search, tracking, and grounded reading UX.</li>
-                    <li><strong>Now:</strong> official provenance badges and relationship graph support are in place.</li>
-                    <li><strong>Next:</strong> expand tracked-law workflow into alerts and saved research views.</li>
-                    <li><strong>Then:</strong> merge richer VBPL and Van ban Chinh phu data for stronger canonical linking.</li>
-                    <li><strong>Later:</strong> hybrid retrieval and MCP export surfaces.</li>
-                </ol>
             </section>
         </aside>
     </section>

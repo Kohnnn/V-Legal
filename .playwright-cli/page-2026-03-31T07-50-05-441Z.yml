@@ -1,0 +1,590 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "VG V-Legal The Scholarly Archive Prototype" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: VG
+        - generic [ref=e7]:
+          - strong [ref=e8]: V-Legal
+          - text: The Scholarly Archive Prototype
+      - generic [ref=e9]:
+        - generic [ref=e10]: Stage 1 / Hugging Face bootstrap corpus
+        - generic [ref=e11]: "Official layers next: Phap dien, VBPL, Van ban Chinh phu"
+      - navigation "Primary" [ref=e12]:
+        - link "Archive" [ref=e13] [cursor=pointer]:
+          - /url: /
+        - link "Workbench" [ref=e14] [cursor=pointer]:
+          - /url: /tracking
+        - link "Tracked Laws" [ref=e15] [cursor=pointer]:
+          - /url: /#tracked-laws
+        - link "Roadmap" [ref=e16] [cursor=pointer]:
+          - /url: /#source-roadmap
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - paragraph [ref=e20]: Creative North Star / The Scholarly Archive
+        - heading "Vietnamese law, staged like a government gazette and queried like a modern research system." [level=1] [ref=e21]
+        - paragraph [ref=e22]: The current build uses the Hugging Face legal corpus as a fast prototype surface. The experience already centers clean reading, grounded retrieval, and personal tracking rather than a cluttered portal aesthetic.
+      - generic [ref=e23]:
+        - article [ref=e24]:
+          - text: Loaded documents
+          - strong [ref=e25]: "478"
+        - article [ref=e26]:
+          - text: Issuing authorities
+          - strong [ref=e27]: "147"
+        - article [ref=e28]:
+          - text: Tracked laws
+          - strong [ref=e29]: "0"
+        - article [ref=e30]:
+          - text: Official subjects
+          - strong [ref=e31]: "42"
+        - article [ref=e32]:
+          - text: Graph links
+          - strong [ref=e33]: "3"
+        - article [ref=e34]:
+          - text: Citation links
+          - strong [ref=e35]: "53"
+        - article [ref=e36]:
+          - text: Research views
+          - strong [ref=e37]: "0"
+        - article [ref=e38]:
+          - text: Year range
+          - strong [ref=e39]: 2000-2026
+    - region "Archive search" [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]: Search by title, number, clause, or concept
+            - searchbox "Search by title, number, clause, or concept" [ref=e45]
+          - button "Search Archive" [ref=e46] [cursor=pointer]
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - generic [ref=e49]: Document type
+            - combobox "Document type" [ref=e50]:
+              - option "All types" [selected]
+              - option "Quyết định"
+              - option "Nghị quyết"
+              - option "Nghị định"
+              - option "Công văn"
+              - option "Kế hoạch"
+              - option "Luật"
+              - option "Thông tư"
+              - option "VỀ VIỆC CÔNG BỐ LUẬT"
+              - option "Chỉ thị"
+              - option "HƯỚNG DẪN"
+              - option "PHÊ DUYỆT QUY TRÌNH NỘI BỘ TRONG GIẢI QUYẾT THỦ TỤC HÀNH CHÍNH THỰC HIỆN KHÔNG PHỤ THUỘC VÀO ĐỊA GIỚ"
+              - option "QUY ĐỊNH VỀ TRÌNH TỰ, THỦ TỤC TỔ CHỨC LẬP, THẨM ĐỊNH, PHÊ DUYỆT, CÔNG BỐ ĐIỀU CHỈNH CỤC BỘ QUY HOẠCH"
+          - generic [ref=e51]:
+            - generic [ref=e52]: Year
+            - combobox "Year" [ref=e53]:
+              - option "All years" [selected]
+              - option "2026"
+              - option "2025"
+              - option "2024"
+              - option "2023"
+              - option "2022"
+              - option "2021"
+              - option "2020"
+              - option "2019"
+              - option "2018"
+              - option "2017"
+              - option "2016"
+              - option "2015"
+              - option "2014"
+              - option "2013"
+              - option "2012"
+              - option "2010"
+              - option "2008"
+              - option "2007"
+              - option "2006"
+              - option "2000"
+          - generic [ref=e54]:
+            - generic [ref=e55]: Issuing authority
+            - textbox "Issuing authority" [ref=e56]:
+              - /placeholder: "Ex: Thu tuong Chinh phu"
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: Save current research view
+          - textbox "Save current research view" [ref=e60]:
+            - /placeholder: "Ex: Cultural industry watch, Insurance issuer scan"
+        - button "Save View" [ref=e61] [cursor=pointer]
+    - generic [ref=e62]:
+      - complementary [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - paragraph [ref=e66]: Personal tracking
+            - heading "My Followed Laws" [level=2] [ref=e67]
+          - paragraph [ref=e68]: Track laws directly from the archive list or a document page. This is the first step toward the portfolio workflow from the design ideas.
+          - link "Open workbench" [ref=e69] [cursor=pointer]:
+            - /url: /tracking
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - paragraph [ref=e72]: Official taxonomy
+            - heading "Phap dien subjects" [level=2] [ref=e73]
+          - generic [ref=e74]:
+            - link "An ninh quốc gia 0 linked docs" [ref=e75] [cursor=pointer]:
+              - /url: /?topic=an-ninh-quoc-gia
+              - strong [ref=e76]: An ninh quốc gia
+              - generic [ref=e77]: 0 linked docs
+            - link "Bưu chính, viễn thông 15 linked docs" [ref=e78] [cursor=pointer]:
+              - /url: /?topic=buu-chinh-vien-thong
+              - strong [ref=e79]: Bưu chính, viễn thông
+              - generic [ref=e80]: 15 linked docs
+            - link "Bảo hiểm 2 linked docs" [ref=e81] [cursor=pointer]:
+              - /url: /?topic=bao-hiem
+              - strong [ref=e82]: Bảo hiểm
+              - generic [ref=e83]: 2 linked docs
+            - link "Bổ trợ tư pháp 3 linked docs" [ref=e84] [cursor=pointer]:
+              - /url: /?topic=bo-tro-tu-phap
+              - strong [ref=e85]: Bổ trợ tư pháp
+              - generic [ref=e86]: 3 linked docs
+            - link "Chính sách xã hội 24 linked docs" [ref=e87] [cursor=pointer]:
+              - /url: /?topic=chinh-sach-xa-hoi
+              - strong [ref=e88]: Chính sách xã hội
+              - generic [ref=e89]: 24 linked docs
+            - link "Cán bộ, công chức, viên chức 9 linked docs" [ref=e90] [cursor=pointer]:
+              - /url: /?topic=can-bo-cong-chuc-vien-chuc
+              - strong [ref=e91]: Cán bộ, công chức, viên chức
+              - generic [ref=e92]: 9 linked docs
+            - link "Công nghiệp 0 linked docs" [ref=e93] [cursor=pointer]:
+              - /url: /?topic=cong-nghiep
+              - strong [ref=e94]: Công nghiệp
+              - generic [ref=e95]: 0 linked docs
+            - link "Doanh nghiệp, hợp tác xã 8 linked docs" [ref=e96] [cursor=pointer]:
+              - /url: /?topic=doanh-nghiep-hop-tac-xa
+              - strong [ref=e97]: Doanh nghiệp, hợp tác xã
+              - generic [ref=e98]: 8 linked docs
+            - link "Dân số, gia đình, trẻ em, bình đẳng giới 0 linked docs" [ref=e99] [cursor=pointer]:
+              - /url: /?topic=dan-so-gia-dinh-tre-em-binh-dang-gioi
+              - strong [ref=e100]: Dân số, gia đình, trẻ em, bình đẳng giới
+              - generic [ref=e101]: 0 linked docs
+            - link "Dân sự 3 linked docs" [ref=e102] [cursor=pointer]:
+              - /url: /?topic=dan-su
+              - strong [ref=e103]: Dân sự
+              - generic [ref=e104]: 3 linked docs
+            - link "Giao thông, vận tải 13 linked docs" [ref=e105] [cursor=pointer]:
+              - /url: /?topic=giao-thong-van-tai
+              - strong [ref=e106]: Giao thông, vận tải
+              - generic [ref=e107]: 13 linked docs
+            - link "Giáo dục, đào tạo 7 linked docs" [ref=e108] [cursor=pointer]:
+              - /url: /?topic=giao-duc-dao-tao
+              - strong [ref=e109]: Giáo dục, đào tạo
+              - generic [ref=e110]: 7 linked docs
+            - link "Hành chính tư pháp 122 linked docs" [ref=e111] [cursor=pointer]:
+              - /url: /?topic=hanh-chinh-tu-phap
+              - strong [ref=e112]: Hành chính tư pháp
+              - generic [ref=e113]: 122 linked docs
+            - link "Hình sự 1 linked docs" [ref=e114] [cursor=pointer]:
+              - /url: /?topic=hinh-su
+              - strong [ref=e115]: Hình sự
+              - generic [ref=e116]: 1 linked docs
+            - link "Khiếu nại, tố cáo 0 linked docs" [ref=e117] [cursor=pointer]:
+              - /url: /?topic=khieu-nai-to-cao
+              - strong [ref=e118]: Khiếu nại, tố cáo
+              - generic [ref=e119]: 0 linked docs
+            - link "Khoa học, công nghệ 20 linked docs" [ref=e120] [cursor=pointer]:
+              - /url: /?topic=khoa-hoc-cong-nghe
+              - strong [ref=e121]: Khoa học, công nghệ
+              - generic [ref=e122]: 20 linked docs
+            - link "Kế toán, kiểm toán 1 linked docs" [ref=e123] [cursor=pointer]:
+              - /url: /?topic=ke-toan-kiem-toan
+              - strong [ref=e124]: Kế toán, kiểm toán
+              - generic [ref=e125]: 1 linked docs
+            - link "Lao động 7 linked docs" [ref=e126] [cursor=pointer]:
+              - /url: /?topic=lao-dong
+              - strong [ref=e127]: Lao động
+              - generic [ref=e128]: 7 linked docs
+            - link "Môi trường 26 linked docs" [ref=e129] [cursor=pointer]:
+              - /url: /?topic=moi-truong
+              - strong [ref=e130]: Môi trường
+              - generic [ref=e131]: 26 linked docs
+            - link "Ngoại giao, điều ước quốc tế 0 linked docs" [ref=e132] [cursor=pointer]:
+              - /url: /?topic=ngoai-giao-dieu-uoc-quoc-te
+              - strong [ref=e133]: Ngoại giao, điều ước quốc tế
+              - generic [ref=e134]: 0 linked docs
+            - link "Ngân hàng, tiền tệ 4 linked docs" [ref=e135] [cursor=pointer]:
+              - /url: /?topic=ngan-hang-tien-te
+              - strong [ref=e136]: Ngân hàng, tiền tệ
+              - generic [ref=e137]: 4 linked docs
+            - link "Nông nghiệp, nông thôn 0 linked docs" [ref=e138] [cursor=pointer]:
+              - /url: /?topic=nong-nghiep-nong-thon
+              - strong [ref=e139]: Nông nghiệp, nông thôn
+              - generic [ref=e140]: 0 linked docs
+            - link "Quốc phòng 0 linked docs" [ref=e141] [cursor=pointer]:
+              - /url: /?topic=quoc-phong
+              - strong [ref=e142]: Quốc phòng
+              - generic [ref=e143]: 0 linked docs
+            - link "Thi hành án 6 linked docs" [ref=e144] [cursor=pointer]:
+              - /url: /?topic=thi-hanh-an
+              - strong [ref=e145]: Thi hành án
+              - generic [ref=e146]: 6 linked docs
+            - link "Thuế, phí, lệ phí, các khoản thu khác 9 linked docs" [ref=e147] [cursor=pointer]:
+              - /url: /?topic=thue-phi-le-phi-cac-khoan-thu-khac
+              - strong [ref=e148]: Thuế, phí, lệ phí, các khoản thu khác
+              - generic [ref=e149]: 9 linked docs
+            - link "Thông tin, báo chí, xuất bản 20 linked docs" [ref=e150] [cursor=pointer]:
+              - /url: /?topic=thong-tin-bao-chi-xuat-ban
+              - strong [ref=e151]: Thông tin, báo chí, xuất bản
+              - generic [ref=e152]: 20 linked docs
+            - link "Thương mại, đầu tư, chứng khoán 30 linked docs" [ref=e153] [cursor=pointer]:
+              - /url: /?topic=thuong-mai-dau-tu-chung-khoan
+              - strong [ref=e154]: Thương mại, đầu tư, chứng khoán
+              - generic [ref=e155]: 30 linked docs
+            - link "Thống kê 0 linked docs" [ref=e156] [cursor=pointer]:
+              - /url: /?topic=thong-ke
+              - strong [ref=e157]: Thống kê
+              - generic [ref=e158]: 0 linked docs
+            - link "Trật tự, an toàn xã hội 24 linked docs" [ref=e159] [cursor=pointer]:
+              - /url: /?topic=trat-tu-an-toan-xa-hoi
+              - strong [ref=e160]: Trật tự, an toàn xã hội
+              - generic [ref=e161]: 24 linked docs
+            - link "Tài chính 40 linked docs" [ref=e162] [cursor=pointer]:
+              - /url: /?topic=tai-chinh
+              - strong [ref=e163]: Tài chính
+              - generic [ref=e164]: 40 linked docs
+            - link "Tài nguyên 26 linked docs" [ref=e165] [cursor=pointer]:
+              - /url: /?topic=tai-nguyen
+              - strong [ref=e166]: Tài nguyên
+              - generic [ref=e167]: 26 linked docs
+            - link "Tài sản công, nợ công, dự trữ nhà nước 30 linked docs" [ref=e168] [cursor=pointer]:
+              - /url: /?topic=tai-san-cong-no-cong-du-tru-nha-nuoc
+              - strong [ref=e169]: Tài sản công, nợ công, dự trữ nhà nước
+              - generic [ref=e170]: 30 linked docs
+            - link "Tôn giáo, tín ngưỡng 1 linked docs" [ref=e171] [cursor=pointer]:
+              - /url: /?topic=ton-giao-tin-nguong
+              - strong [ref=e172]: Tôn giáo, tín ngưỡng
+              - generic [ref=e173]: 1 linked docs
+            - link "Tương trợ tư pháp 0 linked docs" [ref=e174] [cursor=pointer]:
+              - /url: /?topic=tuong-tro-tu-phap
+              - strong [ref=e175]: Tương trợ tư pháp
+              - generic [ref=e176]: 0 linked docs
+            - link "Tố tụng và các phương thức giải quyết tranh chấp 1 linked docs" [ref=e177] [cursor=pointer]:
+              - /url: /?topic=to-tung-va-cac-phuong-thuc-giai-quyet-tranh-chap
+              - strong [ref=e178]: Tố tụng và các phương thức giải quyết tranh chấp
+              - generic [ref=e179]: 1 linked docs
+            - link "Tổ chức bộ máy nhà nước 140 linked docs" [ref=e180] [cursor=pointer]:
+              - /url: /?topic=to-chuc-bo-may-nha-nuoc
+              - strong [ref=e181]: Tổ chức bộ máy nhà nước
+              - generic [ref=e182]: 140 linked docs
+            - link "Tổ chức chính trị - xã hội, hội 24 linked docs" [ref=e183] [cursor=pointer]:
+              - /url: /?topic=to-chuc-chinh-tri---xa-hoi-hoi
+              - strong [ref=e184]: Tổ chức chính trị - xã hội, hội
+              - generic [ref=e185]: 24 linked docs
+            - link "Văn hóa, thể thao, du lịch 36 linked docs" [ref=e186] [cursor=pointer]:
+              - /url: /?topic=van-hoa-the-thao-du-lich
+              - strong [ref=e187]: Văn hóa, thể thao, du lịch
+              - generic [ref=e188]: 36 linked docs
+            - link "Văn thư lưu trữ 0 linked docs" [ref=e189] [cursor=pointer]:
+              - /url: /?topic=van-thu-luu-tru
+              - strong [ref=e190]: Văn thư lưu trữ
+              - generic [ref=e191]: 0 linked docs
+            - link "Xây dựng pháp luật và thi hành pháp luật 14 linked docs" [ref=e192] [cursor=pointer]:
+              - /url: /?topic=xay-dung-phap-luat-va-thi-hanh-phap-luat
+              - strong [ref=e193]: Xây dựng pháp luật và thi hành pháp luật
+              - generic [ref=e194]: 14 linked docs
+            - link "Xây dựng, nhà ở, đô thị 12 linked docs" [ref=e195] [cursor=pointer]:
+              - /url: /?topic=xay-dung-nha-o-do-thi
+              - strong [ref=e196]: Xây dựng, nhà ở, đô thị
+              - generic [ref=e197]: 12 linked docs
+            - link "Y tế, dược 12 linked docs" [ref=e198] [cursor=pointer]:
+              - /url: /?topic=y-te-duoc
+              - strong [ref=e199]: Y tế, dược
+              - generic [ref=e200]: 12 linked docs
+        - generic [ref=e201]:
+          - generic [ref=e202]:
+            - paragraph [ref=e203]: Grounded retrieval
+            - heading "Ask the current corpus" [level=2] [ref=e204]
+          - generic [ref=e205]:
+            - generic [ref=e206]: Question
+            - textbox "Question" [ref=e207]:
+              - /placeholder: "Vi du: Van ban nao hien dang dieu chinh cong nghiep van hoa?"
+            - button "Generate Brief" [ref=e208] [cursor=pointer]
+          - generic [ref=e209]: This brief only cites passages retrieved from the local sample. It is intentionally conservative.
+      - generic [ref=e210]:
+        - generic [ref=e211]:
+          - generic [ref=e212]:
+            - paragraph [ref=e213]: Archive index
+            - heading "Latest imported archive records" [level=2] [ref=e214]
+          - paragraph [ref=e215]: "Last import: 2026-03-31 07:34:36"
+        - generic [ref=e216]:
+          - article [ref=e217]:
+            - generic [ref=e218]:
+              - generic [ref=e219]:
+                - generic [ref=e220]: BAN HÀNH QUY ĐỊNH TRÁCH NHIỆM XÓA BỎ ĐIỂM KINH DOANH TỰ PHÁT VÀ QUY TRÌNH CHUYỂN ĐỔI MÔ HÌNH QUẢN LÝ
+                - generic [ref=e221]: 10/2026/QĐ-UBND
+                - generic [ref=e222]: 31/01/2026
+              - button "Track law" [ref=e223] [cursor=pointer]
+            - heading "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [level=3] [ref=e224]:
+              - link "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [ref=e225] [cursor=pointer]:
+                - /url: /documents/693958
+            - paragraph [ref=e226]: ỦY BAN NHÂN DÂN TỈNH CÀ MAU
+            - link "VBPL" [ref=e228] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=10%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e229]: "ỦY BAN NHÂN DÂN TỈNH CÀ MAU | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 10/2026/QĐ-UBND | Cà Mau, ngày 31 tháng 01 năm 2026 QUYẾT ĐỊNH BAN HÀNH QUY ĐỊNH TRÁCH NHIỆM XÓA BỎ ĐIỂM KINH DOANH TỰ PHÁT VÀ QUY TRÌNH CHUYỂN ĐỔI MÔ HÌNH QUẢN LÝ, KINH DOANH, KHA..."
+            - link "Open record" [ref=e231] [cursor=pointer]:
+              - /url: /documents/693958
+          - article [ref=e232]:
+            - generic [ref=e233]:
+              - generic [ref=e234]:
+                - generic [ref=e235]: PHÊ DUYỆT QUY TRÌNH NỘI BỘ GIẢI QUYẾT THỦ TỤC HÀNH CHÍNH TRONG LĨNH VỰC HÒA GIẢI Ở CƠ SỞ THUỘC THẨM
+                - generic [ref=e236]: 404/QĐ-UBND
+                - generic [ref=e237]: 31/01/2026
+              - button "Track law" [ref=e238] [cursor=pointer]
+            - heading "Căn cứ Luật Tổ chức chính quyền địa phương ngày 16 tháng 6 năm 2025;" [level=3] [ref=e239]:
+              - link "Căn cứ Luật Tổ chức chính quyền địa phương ngày 16 tháng 6 năm 2025;" [ref=e240] [cursor=pointer]:
+                - /url: /documents/697584
+            - paragraph [ref=e241]: ỦY BAN NHÂN DÂN TỈNH KHÁNH HÒA
+            - link "VBPL" [ref=e243] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=404%2FQ%C4%90-UBND
+            - paragraph [ref=e244]: "ỦY BAN NHÂN DÂN TỈNH KHÁNH HÒA | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 404/QĐ-UBND | Khánh Hòa, ngày 31 tháng 01 năm 2026 QUYẾT ĐỊNH PHÊ DUYỆT QUY TRÌNH NỘI BỘ GIẢI QUYẾT THỦ TỤC HÀNH CHÍNH TRONG LĨNH VỰC HÒA GIẢI Ở CƠ SỞ THUỘC THẨM QUYỀN GIẢI QUYẾ..."
+            - link "Open record" [ref=e246] [cursor=pointer]:
+              - /url: /documents/697584
+          - article [ref=e247]:
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - generic [ref=e250]: V/Y CÔNG BỐ THỦ TỤC HÀNH CHÍNH ĐƯỢC SỬA ĐỔI, BỔ SUNG LĨNH VỰC ĐO ĐẠC VÀ BẢN ĐỒ THUỘC PHẠM VI CHỨC NĂ
+                - generic [ref=e251]: 421/QĐ-BNNMT
+                - generic [ref=e252]: 31/01/2026
+              - button "Track law" [ref=e253] [cursor=pointer]
+            - heading "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;" [level=3] [ref=e254]:
+              - link "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;" [ref=e255] [cursor=pointer]:
+                - /url: /documents/694933
+            - paragraph [ref=e256]: BỘ NÔNG NGHIỆP VÀ MÔI TRƯỜNG
+            - generic [ref=e257]:
+              - link "VBPL" [ref=e258] [cursor=pointer]:
+                - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=421%2FQ%C4%90-BNNMT
+              - link "VNCP" [ref=e259] [cursor=pointer]:
+                - /url: https://vanban.chinhphu.vn/?pageid=473&q=421%2FQ%C4%90-BNNMT
+            - paragraph [ref=e260]: "BỘ NÔNG NGHIỆP VÀ MÔI TRƯỜNG | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 421/QĐ-BNNMT | Hà Nội, ngày 31 tháng 01 năm 2026 QUYẾT ĐỊNH V/Y CÔNG BỐ THỦ TỤC HÀNH CHÍNH ĐƯỢC SỬA ĐỔI, BỔ SUNG LĨNH VỰC ĐO ĐẠC VÀ BẢN ĐỒ THUỘC PHẠM VI CHỨC NĂNG QUẢN LÝ CỦA BỘ N..."
+            - link "Open record" [ref=e262] [cursor=pointer]:
+              - /url: /documents/694933
+          - article [ref=e263]:
+            - generic [ref=e264]:
+              - generic [ref=e265]:
+                - generic [ref=e266]: VỀ VIỆC CÔNG BỐ THỦ TỤC HÀNH CHÍNH ĐƯỢC SỬA ĐỔI, BỔ SUNG; THỦ TỤC HÀNH CHÍNH BỊ BÃI BỎ LĨNH VỰC MÔI
+                - generic [ref=e267]: 418/QĐ-BNNMT
+                - generic [ref=e268]: 31/01/2026
+              - button "Track law" [ref=e269] [cursor=pointer]
+            - heading "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ, quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;" [level=3] [ref=e270]:
+              - link "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ, quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;" [ref=e271] [cursor=pointer]:
+                - /url: /documents/694934
+            - paragraph [ref=e272]: BỘ NÔNG NGHIỆP VÀ MÔI TRƯỜNG
+            - generic [ref=e273]:
+              - link "VBPL" [ref=e274] [cursor=pointer]:
+                - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=418%2FQ%C4%90-BNNMT
+              - link "VNCP" [ref=e275] [cursor=pointer]:
+                - /url: https://vanban.chinhphu.vn/?pageid=473&q=418%2FQ%C4%90-BNNMT
+            - paragraph [ref=e276]: "BỘ NÔNG NGHIỆP VÀ MÔI TRƯỜNG | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 418/QĐ-BNNMT | Hà Nội, ngày 31 tháng 01 năm 2026 QUYẾT ĐỊNH VỀ VIỆC CÔNG BỐ THỦ TỤC HÀNH CHÍNH ĐƯỢC SỬA ĐỔI, BỔ SUNG; THỦ TỤC HÀNH CHÍNH BỊ BÃI BỎ LĨNH VỰC MÔI TRƯỜNG THUỘC PHẠM V..."
+            - link "Open record" [ref=e278] [cursor=pointer]:
+              - /url: /documents/694934
+          - article [ref=e279]:
+            - generic [ref=e280]:
+              - generic [ref=e281]:
+                - generic [ref=e282]: TRIỂN KHAI XÂY DỰNG XÃ, PHƯỜNG, CƠ QUAN, DOANH NGHIỆP, CƠ SỞ GIÁO DỤC ĐIỂN HÌNH VỀ PHONG TRÀO TOÀN D
+                - generic [ref=e283]: 33/KH-UBND
+                - generic [ref=e284]: 31/01/2026
+              - button "Track law" [ref=e285] [cursor=pointer]
+            - heading "I. MỤC ĐÍCH, YÊU CẦU" [level=3] [ref=e286]:
+              - link "I. MỤC ĐÍCH, YÊU CẦU" [ref=e287] [cursor=pointer]:
+                - /url: /documents/693642
+            - paragraph [ref=e288]: ỦY BAN NHÂN DÂN TỈNH HƯNG YÊN
+            - link "VBPL" [ref=e290] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=33%2FKH-UBND
+            - paragraph [ref=e291]: "ỦY BAN NHÂN DÂN TỈNH HƯNG YÊN | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 33/KH-UBND | Hưng Yên, ngày 31 tháng 01 năm 2026 KẾ HOẠCH TRIỂN KHAI XÂY DỰNG XÃ, PHƯỜNG, CƠ QUAN, DOANH NGHIỆP, CƠ SỞ GIÁO DỤC ĐIỂN HÌNH VỀ PHONG TRÀO TOÀN DÂN BẢO VỆ AN NINH TỔ..."
+            - link "Open record" [ref=e293] [cursor=pointer]:
+              - /url: /documents/693642
+          - article [ref=e294]:
+            - generic [ref=e295]:
+              - generic [ref=e296]:
+                - generic [ref=e297]: BÃI BỎ QUYẾT ĐỊNH SỐ 78/2017/QĐ-UBND NGÀY 08 THÁNG 11 NĂM 2017 CỦA ỦY BAN NHÂN DÂN TỈNH AN GIANG VỀ
+                - generic [ref=e298]: 04/2026/QĐ-UBND
+                - generic [ref=e299]: 30/01/2026
+              - button "Track law" [ref=e300] [cursor=pointer]
+            - heading "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [level=3] [ref=e301]:
+              - link "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [ref=e302] [cursor=pointer]:
+                - /url: /documents/693675
+            - paragraph [ref=e303]: ỦY BAN NHÂN DÂN TỈNH AN GIANG
+            - link "VBPL" [ref=e305] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=04%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e306]: "ỦY BAN NHÂN DÂN TỈNH AN GIANG | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 04/2026/QĐ-UBND | An Giang, ngày 30 tháng 01 năm 2026 QUYẾT ĐỊNH BÃI BỎ QUYẾT ĐỊNH SỐ 78/2017/QĐ-UBND NGÀY 08 THÁNG 11 NĂM 2017 CỦA ỦY BAN NHÂN DÂN TỈNH AN GIANG VỀ VIỆC PHÂN CẤP..."
+            - link "Open record" [ref=e308] [cursor=pointer]:
+              - /url: /documents/693675
+          - article [ref=e309]:
+            - generic [ref=e310]:
+              - generic [ref=e311]:
+                - generic [ref=e312]: BAN HÀNH QUY ĐỊNH TRÌNH TỰ, THỦ TỤC, HỒ SƠ THỰC HIỆN CHÍNH SÁCH KHUYẾN KHÍCH, HỖ TRỢ PHÁT TRIỂN SẢN
+                - generic [ref=e313]: 13/2026/QĐ-UBND
+                - generic [ref=e314]: 30/01/2026
+              - button "Track law" [ref=e315] [cursor=pointer]
+            - heading "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [level=3] [ref=e316]:
+              - link "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;" [ref=e317] [cursor=pointer]:
+                - /url: /documents/694324
+            - paragraph [ref=e318]: ỦY BAN NHÂN DÂN TỈNH LÀO CAI
+            - link "VBPL" [ref=e320] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=13%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e321]: "ỦY BAN NHÂN DÂN TỈNH LÀO CAI | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 13/2026/QĐ-UBND | Lào Cai, ngày 30 tháng 01 năm 2026 QUYẾT ĐỊNH BAN HÀNH QUY ĐỊNH TRÌNH TỰ, THỦ TỤC, HỒ SƠ THỰC HIỆN CHÍNH SÁCH KHUYẾN KHÍCH, HỖ TRỢ PHÁT TRIỂN SẢN XUẤT NÔNG, LÂM..."
+            - link "Open record" [ref=e323] [cursor=pointer]:
+              - /url: /documents/694324
+          - article [ref=e324]:
+            - generic [ref=e325]:
+              - generic [ref=e326]:
+                - generic [ref=e327]: VỀ VIỆC BAN HÀNH QUY ĐỊNH VỀ ĐỊNH MỨC KINH TẾ - KỸ THUẬT ĐIỀU TRA, ĐÁNH GIÁ ĐẤT ĐAI TRÊN ĐỊA BÀN TỈN
+                - generic [ref=e328]: 10/2026/QĐ-UBND
+                - generic [ref=e329]: 30/01/2026
+              - button "Track law" [ref=e330] [cursor=pointer]
+            - heading "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung một số điều bởi Luật số 87/2025/QH15;" [level=3] [ref=e331]:
+              - link "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung một số điều bởi Luật số 87/2025/QH15;" [ref=e332] [cursor=pointer]:
+                - /url: /documents/693491
+            - paragraph [ref=e333]: ỦY BAN NHÂN DÂN TỈNH QUẢNG NINH
+            - link "VBPL" [ref=e335] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=10%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e336]: "ỦY BAN NHÂN DÂN TỈNH QUẢNG NINH | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 10/2026/QĐ-UBND | Quảng Ninh, ngày 30 tháng 01 năm 2026 QUYẾT ĐỊNH VỀ VIỆC BAN HÀNH QUY ĐỊNH VỀ ĐỊNH MỨC KINH TẾ - KỸ THUẬT ĐIỀU TRA, ĐÁNH GIÁ ĐẤT ĐAI TRÊN ĐỊA BÀN TỈNH QUẢNG N..."
+            - link "Open record" [ref=e338] [cursor=pointer]:
+              - /url: /documents/693491
+          - article [ref=e339]:
+            - generic [ref=e340]:
+              - generic [ref=e341]:
+                - generic [ref=e342]: BAN HÀNH QUY ĐỊNH MỨC CHI CHO HOẠT ĐỘNG PHÒNG, CHỐNG BẠO LỰC GIA ĐÌNH TRÊN ĐỊA BÀN TỈNH THÁI NGUYÊN
+                - generic [ref=e343]: 07/2026/QĐ-UBND
+                - generic [ref=e344]: 30/01/2026
+              - button "Track law" [ref=e345] [cursor=pointer]
+            - heading "Căn cứ Luật Phòng, chống bạo lực gia đình số 13/2022/QH15;" [level=3] [ref=e346]:
+              - link "Căn cứ Luật Phòng, chống bạo lực gia đình số 13/2022/QH15;" [ref=e347] [cursor=pointer]:
+                - /url: /documents/694331
+            - paragraph [ref=e348]: ỦY BAN NHÂN DÂN TỈNH THÁI NGUYÊN
+            - link "VBPL" [ref=e350] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=07%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e351]: "ỦY BAN NHÂN DÂN TỈNH THÁI NGUYÊN | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 07/2026/QĐ-UBND | Thái Nguyên, ngày 30 tháng 01 năm 2026 QUYẾT ĐỊNH BAN HÀNH QUY ĐỊNH MỨC CHI CHO HOẠT ĐỘNG PHÒNG, CHỐNG BẠO LỰC GIA ĐÌNH TRÊN ĐỊA BÀN TỈNH THÁI NGUYÊN Căn cứ..."
+            - link "Open record" [ref=e353] [cursor=pointer]:
+              - /url: /documents/694331
+          - article [ref=e354]:
+            - generic [ref=e355]:
+              - generic [ref=e356]:
+                - generic [ref=e357]: TRIỂN KHAI HỌC BẠ SỐ ĐỐI VỚI GIÁO DỤC PHỔ THÔNG VÀ GIÁO DỤC THƯỜNG XUYÊN TỈNH HƯNG YÊN GIAI ĐOẠN 202
+                - generic [ref=e358]: 31/KH-UBND
+                - generic [ref=e359]: 30/01/2026
+              - button "Track law" [ref=e360] [cursor=pointer]
+            - heading "Theo đề nghị của Sở Giáo dục và Đào tạo tại Tờ trình số 06/TTr-SGDĐT ngày 13/01/2026; Ủy ban nhân dân tỉnh ban hành kế hoạch triển khai Học bạ số đối với giáo dục phổ thông và giáo dục thường xuyên tỉnh Hưng Yên giai đoạn 2025-2030, cụ thể như sau:" [level=3] [ref=e361]:
+              - link "Theo đề nghị của Sở Giáo dục và Đào tạo tại Tờ trình số 06/TTr-SGDĐT ngày 13/01/2026; Ủy ban nhân dân tỉnh ban hành kế hoạch triển khai Học bạ số đối với giáo dục phổ thông và giáo dục thường xuyên tỉnh Hưng Yên giai đoạn 2025-2030, cụ thể như sau:" [ref=e362] [cursor=pointer]:
+                - /url: /documents/693641
+            - paragraph [ref=e363]: ỦY BAN NHÂN DÂN TỈNH HƯNG YÊN
+            - link "VBPL" [ref=e365] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=31%2FKH-UBND
+            - paragraph [ref=e366]: "ỦY BAN NHÂN DÂN TỈNH HƯNG YÊN | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 31/KH-UBND | Hưng Yên, ngày 30 tháng 01 năm 2026 KẾ HOẠCH TRIỂN KHAI HỌC BẠ SỐ ĐỐI VỚI GIÁO DỤC PHỔ THÔNG VÀ GIÁO DỤC THƯỜNG XUYÊN TỈNH HƯNG YÊN GIAI ĐOẠN 2025 - 2030 Căn cứ các..."
+            - link "Open record" [ref=e368] [cursor=pointer]:
+              - /url: /documents/693641
+          - article [ref=e369]:
+            - generic [ref=e370]:
+              - generic [ref=e371]:
+                - generic [ref=e372]: HƯỚNG DẪN
+                - generic [ref=e373]: 115/NQ-HĐBCQG
+                - generic [ref=e374]: 29/01/2026
+              - button "Track law" [ref=e375] [cursor=pointer]
+            - heading "Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam đã được sửa đổi, bổ sung một số điều theo Nghị quyết số 203/2025/QH15;" [level=3] [ref=e376]:
+              - link "Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam đã được sửa đổi, bổ sung một số điều theo Nghị quyết số 203/2025/QH15;" [ref=e377] [cursor=pointer]:
+                - /url: /documents/693036
+            - paragraph [ref=e378]: HỘI ĐỒNG BẦU CỬ QUỐC GIA
+            - generic [ref=e379]:
+              - link "VBPL" [ref=e380] [cursor=pointer]:
+                - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=115%2FNQ-H%C4%90BCQG
+              - link "VNCP" [ref=e381] [cursor=pointer]:
+                - /url: https://vanban.chinhphu.vn/?pageid=473&q=115%2FNQ-H%C4%90BCQG
+            - paragraph [ref=e382]: "HỘI ĐỒNG BẦU CỬ QUỐC GIA | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 115/NQ-HĐBCQG | Hà Nội, ngày 29 tháng 01 năm 2026 NGHỊ QUYẾT HƯỚNG DẪN XỬ LÝ TRƯỜNG HỢP KHUYẾT NGƯỜI ỨNG CỬ ĐẠI BIỂU HỘI ĐỒNG NHÂN DÂN VÌ LÝ DO BẤT KHẢ KHÁNG HỘI ĐỒNG BẦU CỬ QUỐC GIA..."
+            - link "Open record" [ref=e384] [cursor=pointer]:
+              - /url: /documents/693036
+          - article [ref=e385]:
+            - generic [ref=e386]:
+              - generic [ref=e387]:
+                - generic [ref=e388]: BAN HÀNH QUY ĐỊNH VỀ QUẢN LÝ, PHÂN CẤP QUẢN LÝ SỬ DỤNG CHUNG CÔNG TRÌNH HẠ TẦNG KỸ THUẬT TRONG ĐÔ TH
+                - generic [ref=e389]: 15/2026/QĐ-UBND
+                - generic [ref=e390]: 29/01/2026
+              - button "Track law" [ref=e391] [cursor=pointer]
+            - heading "Căn cứ Luật Quy hoạch đô thị và nông thôn số 47/2024/QH15;" [level=3] [ref=e392]:
+              - link "Căn cứ Luật Quy hoạch đô thị và nông thôn số 47/2024/QH15;" [ref=e393] [cursor=pointer]:
+                - /url: /documents/692856
+            - paragraph [ref=e394]: ỦY BAN NHÂN DÂN TỈNH ĐẮK LẮK
+            - link "VBPL" [ref=e396] [cursor=pointer]:
+              - /url: https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword=15%2F2026%2FQ%C4%90-UBND
+            - paragraph [ref=e397]: "ỦY BAN NHÂN DÂN TỈNH ĐẮK LẮK | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc Số: 15/2026/QĐ-UBND | Đắk Lắk, ngày 29 tháng 01 năm 2026 QUYẾT ĐỊNH BAN HÀNH QUY ĐỊNH VỀ QUẢN LÝ, PHÂN CẤP QUẢN LÝ SỬ DỤNG CHUNG CÔNG TRÌNH HẠ TẦNG KỸ THUẬT TRONG ĐÔ THỊ, KHU CHỨC NĂN..."
+            - link "Open record" [ref=e399] [cursor=pointer]:
+              - /url: /documents/692856
+        - navigation "Pagination" [ref=e400]:
+          - link "Previous":
+            - /url: "?q=&topic=&legal_type=&year=&issuer=&page=1"
+          - generic [ref=e401]: Page 1 of 40
+          - link "Next" [ref=e402] [cursor=pointer]:
+            - /url: "?q=&topic=&legal_type=&year=&issuer=&page=2"
+      - complementary [ref=e403]:
+        - generic [ref=e404]:
+          - generic [ref=e405]:
+            - paragraph [ref=e406]: Research memory
+            - heading "Saved research views" [level=2] [ref=e407]
+          - paragraph [ref=e408]: Save a search above to build a reusable research view for repeated cross-checking.
+        - generic [ref=e409]:
+          - generic [ref=e410]:
+            - paragraph [ref=e411]: Archive composition
+            - heading "Dominant legal types" [level=2] [ref=e412]
+          - generic [ref=e413]:
+            - generic [ref=e414]:
+              - strong [ref=e415]: Quyết định
+              - text: 184 records
+            - generic [ref=e416]:
+              - strong [ref=e417]: Nghị quyết
+              - text: 14 records
+            - generic [ref=e418]:
+              - strong [ref=e419]: Nghị định
+              - text: 8 records
+            - generic [ref=e420]:
+              - strong [ref=e421]: Công văn
+              - text: 6 records
+            - generic [ref=e422]:
+              - strong [ref=e423]: Kế hoạch
+              - text: 5 records
+            - generic [ref=e424]:
+              - strong [ref=e425]: Luật
+              - text: 5 records
+        - generic [ref=e426]:
+          - generic [ref=e427]:
+            - paragraph [ref=e428]: Recent archive surface
+            - heading "Newest imported records" [level=2] [ref=e429]
+          - generic [ref=e430]:
+            - link "Căn cứ Luật Tổ chức chính quyền địa phương ngày 16 tháng 6 năm 2025; 404/QĐ-UBND" [ref=e431] [cursor=pointer]:
+              - /url: /documents/697584
+              - strong [ref=e432]: Căn cứ Luật Tổ chức chính quyền địa phương ngày 16 tháng 6 năm 2025;
+              - text: 404/QĐ-UBND
+            - link "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ, quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường; 418/QĐ-BNNMT" [ref=e433] [cursor=pointer]:
+              - /url: /documents/694934
+              - strong [ref=e434]: Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ, quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;
+              - text: 418/QĐ-BNNMT
+            - link "Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường; 421/QĐ-BNNMT" [ref=e435] [cursor=pointer]:
+              - /url: /documents/694933
+              - strong [ref=e436]: Căn cứ Nghị định số 35/2025/NĐ-CP ngày 25 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ quyền hạn và cơ cấu tổ chức của Bộ Nông nghiệp và Môi trường;
+              - text: 421/QĐ-BNNMT
+            - link "Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15; 10/2026/QĐ-UBND" [ref=e437] [cursor=pointer]:
+              - /url: /documents/693958
+              - strong [ref=e438]: Căn cứ Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15 được sửa đổi, bổ sung bởi Luật số 87/2025/QH15;
+              - text: 10/2026/QĐ-UBND
+            - link "I. MỤC ĐÍCH, YÊU CẦU 33/KH-UBND" [ref=e439] [cursor=pointer]:
+              - /url: /documents/693642
+              - strong [ref=e440]: I. MỤC ĐÍCH, YÊU CẦU
+              - text: 33/KH-UBND
+        - generic [ref=e441]:
+          - generic [ref=e442]:
+            - paragraph [ref=e443]: Recommended next step
+            - heading "Authority layering roadmap" [level=2] [ref=e444]
+          - list [ref=e445]:
+            - listitem [ref=e446]:
+              - strong [ref=e447]: "Now:"
+              - text: HF corpus for search, tracking, and grounded reading UX.
+            - listitem [ref=e448]:
+              - strong [ref=e449]: "Now:"
+              - text: official provenance badges and relationship graph support are in place.
+            - listitem [ref=e450]:
+              - strong [ref=e451]: "Next:"
+              - text: expand tracked-law workflow into alerts and saved research views.
+            - listitem [ref=e452]:
+              - strong [ref=e453]: "Then:"
+              - text: merge richer VBPL and Van ban Chinh phu data for stronger canonical linking.
+            - listitem [ref=e454]:
+              - strong [ref=e455]: "Later:"
+              - text: hybrid retrieval and MCP export surfaces.
