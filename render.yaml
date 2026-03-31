@@ -4,10 +4,18 @@ services:
     runtime: python
     plan: free
     healthCheckPath: /health
-    buildCommand: pip install uv && uv sync --frozen && uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
+    buildCommand: pip install uv && uv sync --frozen && uv run python scripts/bootstrap_appwrite_to_sqlite.py
     startCommand: uv run uvicorn vlegal_prototype.app:app --app-dir src --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
       - key: VLEGAL_ENVIRONMENT
         value: production
+      - key: VLEGAL_APPWRITE_ENDPOINT
+        value: https://sgp.cloud.appwrite.io/v1
+      - key: VLEGAL_APPWRITE_PROJECT_ID
+        value: 69caaf1c0017a098ce99
+      - key: VLEGAL_APPWRITE_DATABASE_ID
+        value: 69caaf6900186e144449
+      - key: VLEGAL_APPWRITE_API_KEY
+        value: standard_280facd3ff0f728d3c185180323d34b591a691b8c8f05aadbb43e579b61bcef26f806f62e97bac8876dc548a5eb77543b328a9697b1d79f7eef8bf0aaeac619efef7f6231fe99dbd49b7cf6c176bc6590c94c94a421287efde7b72dced38446c3aea3f8eccfc742f6428e4e90ae67ec4b5c2df793d9707106670c63ba3882bce
