@@ -1,6 +1,9 @@
 [build]
-  command = "echo 'Static site - no build required'"
+  command = "echo 'Jinja app served by OCI backend - Netlify acts as proxy/edge'"
   publish = "static"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [[headers]]
   for = "/*"
@@ -11,9 +14,36 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "http://129.150.58.64:8000/api/:splat"
+  to = "https://vlegal.[SITE_HOSTNAME]/api/:splat"
   status = 200
   force = true
 
-[build.environment]
-  NODE_VERSION = "18"
+[[redirects]]
+  from = "/documents/*"
+  to = "https://vlegal.[SITE_HOSTNAME]/documents/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/tracking"
+  to = "https://vlegal.[SITE_HOSTNAME]/tracking"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/research/*"
+  to = "https://vlegal.[SITE_HOSTNAME]/research/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/compare/*"
+  to = "https://vlegal.[SITE_HOSTNAME]/compare/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "https://vlegal.[SITE_HOSTNAME]/:splat"
+  status = 200
+  force = true

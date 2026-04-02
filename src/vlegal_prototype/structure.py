@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 
 
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.*)$")
@@ -8,6 +9,10 @@ ARTICLE_PATTERN = re.compile(r"^(Điều\s+\d+[A-Za-z0-9\-./]*)", re.IGNORECASE)
 SECTION_PATTERN = re.compile(r"^(Mục\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
 CHAPTER_PATTERN = re.compile(r"^(Chương\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
 PART_PATTERN = re.compile(r"^(Phần\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
+
+DOC_NUMBER_IN_TEXT_PATTERN = re.compile(
+    r"\b(\d{1,4}[a-z]?(?:/\d{2,4})?/[A-Za-z0-9\u00c0-\u1ef9\-]+(?:/[A-Za-z0-9\u00c0-\u1ef9\-]+)*)\b"
+)
 
 
 def slugify_anchor(value: str) -> str:
@@ -127,3 +132,73 @@ def prepare_document_markup(markdown_content: str) -> tuple[str, list[dict]]:
         in {"heading", "chapter", "part", "section", "article"}
     ]
     return "\n".join(lines), outline
+
+
+DOC_NUMBER_PATTERN_V2 = re.compile(
+    r"\b([0-9]{1,4}[a-z]?(?:/[0-9]{2,4})?(?:/[A-Za-z0-9\u00c0-\u1ef9\-]+){1,10})\b"
+)
+
+
+def _extract_raw_references(text: str) -> list[tuple[str, int, int]]:
+    refs = []
+    for m in DOC_NUMBER_PATTERN_V2.finditer(text):
+        refs.append((m.group(1), m.start(), m.end()))
+    return refs
+
+
+def _strip_diacritics(s: str) -> str:
+    import unicodedata
+
+    stripped = "".join(
+        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
+    )
+    return stripped.rstrip("-,. ").lower()
+
+
+def _best_reference_match(
+    raw: str, citation_map: dict[str, int]
+) -> tuple[str, int] | None:
+    normalized = _strip_diacritics(raw)
+    if normalized in citation_map:
+        return normalized, citation_map[normalized]
+    for key, target_id in citation_map.items():
+        if len(key) >= 6 and (
+            normalized.startswith(key + "/") or key.startswith(normalized + "/")
+        ):
+            return key, target_id
+    return None
+
+
+def inject_document_links(html: str, citation_map: dict[str, int]) -> str:
+    if not citation_map:
+        return html
+
+    refs = _extract_raw_references(html)
+    replacements: list[tuple[tuple[int, int], str]] = []
+    seen_positions: set[int] = set()
+
+    for raw, start, end in refs:
+        if start in seen_positions:
+            continue
+        match = _best_reference_match(raw, citation_map)
+        if match:
+            normalized, target_id = match
+            seen_positions.add(start)
+            replacements.append(
+                (
+                    (start, end),
+                    f'<a href="/documents/{target_id}" class="doc-ref-link" title="{raw}">{raw}</a>',
+                )
+            )
+
+    result = list(html)
+    offset = 0
+    for (start, end), replacement in sorted(replacements, key=lambda x: x[0][0]):
+        for i in range(end - 1, start - 1, -1):
+            if i < len(result):
+                result.pop(i)
+        for i, ch in enumerate(replacement):
+            result.insert(start + i, ch)
+        offset += len(replacement) - (end - start)
+
+    return "".join(result)

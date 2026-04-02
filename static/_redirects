@@ -1,0 +1,7 @@
+/*    /index.html   200
+/api/*    https://vlegal.[your-site-hostname]/api/:splat   200
+/documents/*   https://vlegal.[your-site-hostname]/documents/:splat   200
+/tracking   https://vlegal.[your-site-hostname]/tracking   200
+/research/*   https://vlegal.[your-site-hostname]/research/:splat   200
+/compare/*   https://vlegal.[your-site-hostname]/compare/:splat   200
+/*   https://vlegal.[your-site-hostname]/:splat   200

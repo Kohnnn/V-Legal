@@ -3,212 +3,176 @@
 {% block title %}{{ document.title }} - V-Legal{% endblock %}
 
 {% block content %}
-<main class="reader-page reader-page--portal">
-    <aside class="reader-rail reader-rail--left">
-        <a class="back-link" href="/">Back to archive</a>
+<div class="doc-page">
+    <div class="doc-shell">
 
-        <section class="viewer-sidecard viewer-sidecard--meta">
-            <div class="viewer-sidecard__heading">
-                <p class="section-label">Van ban</p>
-                <h2>Thong tin chinh</h2>
+        <header class="doc-header">
+            <div class="doc-header__meta">
+                {% if document.legal_type %}<span class="doc-meta-tag">{{ document.legal_type }}</span>{% endif %}
+                {% if document.document_number %}<span class="doc-meta-tag">{{ document.document_number }}</span>{% endif %}
+                {% if document.issuance_date %}<span class="doc-meta-tag">{{ document.issuance_date }}</span>{% endif %}
             </div>
-            <dl class="meta-grid meta-grid--portal">
-                {% if document.document_number %}<div><dt>So</dt><dd>{{ document.document_number }}</dd></div>{% endif %}
-                {% if document.legal_type %}<div><dt>Loai</dt><dd>{{ document.legal_type }}</dd></div>{% endif %}
-                {% if document.issuing_authority %}<div><dt>Co quan</dt><dd>{{ document.issuing_authority }}</dd></div>{% endif %}
-                {% if document.issuance_date %}<div><dt>Ngay</dt><dd>{{ document.issuance_date }}</dd></div>{% endif %}
-                {% if document.legal_sectors %}<div><dt>Linh vuc</dt><dd>{{ document.legal_sectors }}</dd></div>{% endif %}
-            </dl>
-        </section>
-
-        {% if document_outline %}
-            <section class="viewer-sidecard" id="document-toc">
-                <div class="viewer-sidecard__heading">
-                    <p class="section-label">Muc luc van ban</p>
-                    <h2>Noi dung</h2>
-                </div>
-                <nav class="outline-list outline-list--portal" aria-label="Document outline">
-                    {% for item in document_outline %}
-                        <a href="#{{ item.anchor }}">
-                            <span>{{ item.heading }}</span>
-                            {% if item.citation_count %}
-                                <small>{{ item.citation_count }} refs</small>
-                            {% endif %}
-                        </a>
-                    {% endfor %}
-                </nav>
-            </section>
-        {% endif %}
-    </aside>
-
-    <section class="reader-column reader-column--portal">
-        <header class="reader-shell-head">
-            <div class="reader-shell-head__titleblock">
-                <p class="section-label">Document viewer</p>
+            <div class="doc-header__title">
                 <h1>{{ document.title }}</h1>
-                <p class="reader-head__authority">{{ document.issuing_authority or "Unknown issuing authority" }}</p>
-            </div>
-            <div class="reader-shell-head__actions">
-                <button
-                    type="button"
-                    class="track-button {% if is_tracked %}is-active{% endif %}"
-                    data-track-button
-                    data-document-id="{{ document.id }}"
-                    data-tracked="{{ 'true' if is_tracked else 'false' }}"
-                >
-                    {% if is_tracked %}Tracked{% else %}Track law{% endif %}
-                </button>
-                <button type="button" class="compare-select-btn" data-compare-id="{{ document.id }}">Compare</button>
-                <a class="entry-link" href="{{ provenance.corpus_source.url }}" target="_blank" rel="noreferrer">Open source</a>
+                {% if document.issuing_authority %}<p class="doc-header__auth">{{ document.issuing_authority }}</p>{% endif %}
             </div>
         </header>
 
-        <nav class="viewer-tabs" aria-label="Document sections">
-            <a class="is-active" href="#viewer-content">Noi dung</a>
-            <a href="#document-toc">Muc luc</a>
-            <a href="#document-links">Lien quan</a>
-            <a href="#compare-candidates">So sanh</a>
-            <a href="#official-routes">Nguon</a>
+        <nav class="doc-tabs" aria-label="Document sections">
+            <a class="doc-tab doc-tab--active" href="#doc-body">Nội dung</a>
+            <a class="doc-tab" href="#doc-toc">Mục lục</a>
+            <a class="doc-tab" href="#doc-refs">Liên quan nội dung</a>
+            <a class="doc-tab" href="#doc-validity">Liên quan hiệu lực</a>
         </nav>
 
-        <a class="viewer-toc-toggle" href="#document-toc">MUC LUC VAN BAN</a>
+        <div class="doc-body-wrap">
+            <div class="doc-col-main">
+                <p class="doc-toc-toggle"><a href="#doc-toc">▼ MỤC LỤC VĂN BẢN</a></p>
 
-        <section class="document-paper" id="viewer-content">
-            <div class="document-paper__meta">
-                {% if document.legal_type %}<span>{{ document.legal_type }}</span>{% endif %}
-                {% if document.document_number %}<span>{{ document.document_number }}</span>{% endif %}
-                {% if document.issuance_date %}<span>{{ document.issuance_date }}</span>{% endif %}
-                <span>Corpus ID {{ document.id }}</span>
-            </div>
-            <article class="document-body document-body--paper">
-                {{ document_html }}
-            </article>
-        </section>
-    </section>
-
-    <aside class="reader-rail reader-rail--right">
-        <section class="viewer-sidecard" id="document-links">
-            <div class="viewer-sidecard__heading">
-                <p class="section-label">Van ban lien quan</p>
-                <h2>Dan chieu va thay doi</h2>
-            </div>
-            {% if citation_graph.outgoing_total %}
-                {% for group in citation_graph.outgoing_groups %}
-                    <section class="viewer-link-group">
-                        <h3>{{ group.label }}</h3>
-                        <div class="viewer-link-list">
-                            {% for item in group["items"][:8] %}
-                                <article class="viewer-link-item">
-                                    <a class="viewer-link-item__body" href="/documents/{{ item.id }}">
-                                        <strong>{{ item.title }}</strong>
-                                        <span>{{ item.document_number or item.legal_type or "Document" }}</span>
-                                        {% if item.sections %}
-                                            <em>
-                                                {% for section in item.sections[:3] %}
-                                                    {{ section.label }}{% if not loop.last %}, {% endif %}
-                                                {% endfor %}
-                                            </em>
-                                        {% endif %}
-                                    </a>
-                                    <div class="relation-item__actions relation-item__actions--portal">
-                                        <a href="/documents/{{ item.id }}">Open</a>
-                                        <a href="/compare/{{ document.id }}/{{ item.id }}">Compare</a>
-                                    </div>
-                                </article>
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endfor %}
-            {% else %}
-                <p class="panel-copy">No explicit local citation links resolved for this document yet.</p>
-            {% endif %}
-        </section>
-
-        <section class="viewer-sidecard" id="compare-candidates">
-            <div class="viewer-sidecard__heading">
-                <p class="section-label">So sanh van ban</p>
-                <h2>Doi chieu nhanh</h2>
-            </div>
-            {% if relation_graph.total or citation_graph.incoming_total or related_documents %}
-                <div class="viewer-link-list viewer-link-list--compact">
-                    {% for group in relation_graph.outgoing %}
-                        {% for item in group["items"][:4] %}
-                            <article class="viewer-link-item viewer-link-item--compact">
-                                <a class="viewer-link-item__body" href="/documents/{{ item.id }}">
-                                    <strong>{{ item.title }}</strong>
-                                    <span>{{ item.document_number or item.legal_type or "Document" }}</span>
-                                </a>
-                                <div class="relation-item__actions relation-item__actions--portal">
-                                    <a href="/compare/{{ document.id }}/{{ item.id }}">Compare</a>
-                                </div>
-                            </article>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for group in citation_graph.incoming_groups %}
-                        {% for item in group["items"][:4] %}
-                            <article class="viewer-link-item viewer-link-item--compact">
-                                <a class="viewer-link-item__body" href="/documents/{{ item.id }}">
-                                    <strong>{{ item.title }}</strong>
-                                    <span>{{ item.document_number or item.legal_type or "Document" }}</span>
-                                </a>
-                                <div class="relation-item__actions relation-item__actions--portal">
-                                    <a href="/compare/{{ document.id }}/{{ item.id }}">Compare</a>
-                                </div>
-                            </article>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for item in related_documents[:6] %}
-                        <article class="viewer-link-item viewer-link-item--compact">
-                            <a class="viewer-link-item__body" href="/documents/{{ item.id }}">
-                                <strong>{{ item.title }}</strong>
-                                <span>{{ item.document_number or item.legal_type or "Document" }}</span>
-                            </a>
-                            <div class="relation-item__actions relation-item__actions--portal">
-                                <a href="/compare/{{ document.id }}/{{ item.id }}">Compare</a>
-                            </div>
-                        </article>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="panel-copy">No compare candidates inferred from the current local corpus yet.</p>
-            {% endif %}
-        </section>
-
-        <section class="viewer-sidecard" id="official-routes">
-            <div class="viewer-sidecard__heading">
-                <p class="section-label">Nguon doi chieu</p>
-                <h2>{{ provenance.headline }}</h2>
-            </div>
-            <p class="panel-copy">{{ provenance.summary }}</p>
-            <div class="provenance-metadata">
-                <span>{{ provenance.scope_label }}</span>
-                <span>{{ provenance.family_label }}</span>
-            </div>
-            <div class="provenance-route-list provenance-route-list--portal">
-                {% for route in provenance.routes %}
-                    <a class="provenance-route provenance-route--{{ route.confidence }}" href="{{ route.url }}" target="_blank" rel="noreferrer">
-                        <strong>{{ route.label }}</strong>
-                        <span>{{ route.note }}</span>
-                    </a>
-                {% endfor %}
-            </div>
-        </section>
-
-        {% if document_subjects %}
-            <section class="viewer-sidecard">
-                <div class="viewer-sidecard__heading">
-                    <p class="section-label">Chu de</p>
-                    <h2>Phap dien</h2>
-                </div>
-                <div class="taxonomy-list taxonomy-list--compact">
-                    {% for item in document_subjects %}
-                        <a class="taxonomy-item is-active" href="/?topic={{ item.slug }}">
-                            <strong>{{ item.name }}</strong>
+                <div id="doc-toc" class="doc-toc-box">
+                    {% if document_outline %}
+                    <nav aria-label="Document outline">
+                        {% for item in document_outline %}
+                        <a class="doc-toc-item" href="#{{ item.anchor }}">
+                            <span>{{ item.heading }}</span>
+                            {% if item.citation_count %}<small>{{ item.citation_count }} trích dẫn</small>{% endif %}
                         </a>
+                        {% endfor %}
+                    </nav>
+                    {% else %}
+                    <p class="muted">Không có mục lục.</p>
+                    {% endif %}
+                </div>
+
+                <article class="doc-text" id="doc-body">
+                    {{ document_html }}
+                </article>
+
+                {% if document_outline %}
+                <div class="doc-toc-box doc-toc-box--bottom">
+                    <p class="doc-toc-toggle"><a href="#doc-toc">▲ MỤC LỤC VĂN BẢN</a></p>
+                    <nav aria-label="Document outline">
+                        {% for item in document_outline %}
+                        <a class="doc-toc-item" href="#{{ item.anchor }}">
+                            <span>{{ item.heading }}</span>
+                        </a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="doc-col-side">
+                <div class="doc-action-strip">
+                    <button
+                        class="doc-action-btn {% if is_tracked %}doc-action-btn--active{% endif %}"
+                        data-track-button
+                        data-document-id="{{ document.id }}"
+                        data-tracked="{{ 'true' if is_tracked else 'false' }}"
+                        title="Lưu trữ"
+                    >
+                        <span class="doc-action-icon">📁</span>
+                        <span>{% if is_tracked %}Đã lưu{% else %}Lưu trữ{% endif %}</span>
+                    </button>
+
+                    {% if relation_graph.total or citation_graph.incoming_total %}
+                    <button class="doc-action-btn" onclick="document.getElementById('doc-refs').scrollIntoView({behavior:'smooth'})" title="Liên quan">
+                        <span class="doc-action-icon">🔗</span>
+                        <span>Liên quan</span>
+                    </button>
+                    {% endif %}
+
+                    <a class="doc-action-btn" href="/compare/{{ document.id }}/{{ document.id }}" title="So sánh">
+                        <span class="doc-action-icon">⇄</span>
+                        <span>So sánh</span>
+                    </a>
+
+                    {% if provenance.routes %}
+                    <a class="doc-action-btn" href="{{ provenance.routes[0].url }}" target="_blank" rel="noreferrer" title="Nguồn gốc">
+                        <span class="doc-action-icon">🌐</span>
+                        <span>Nguồn gốc</span>
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if document_subjects %}
+                <div class="doc-side-card">
+                    <h3 class="doc-side-card__head">Chủ đề pháp diễn</h3>
+                    <div class="doc-taxonomy">
+                        {% for item in document_subjects %}
+                        <a class="doc-tax-item" href="/?topic={{ item.slug }}">{{ item.name }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </aside>
+        </div>
+
+        {% if citation_graph.outgoing_total or citation_graph.incoming_total %}
+        <section class="doc-ref-section" id="doc-refs">
+            <h2 class="doc-ref-section__title">Văn bản liên quan</h2>
+
+            {% if citation_graph.outgoing_total %}
+            <div class="doc-ref-group">
+                <h3>Văn bản được trích dẫn</h3>
+                <div class="doc-ref-list">
+                    {% for group in citation_graph.outgoing_groups %}
+                        {% for item in group["items"][:10] %}
+                        <article class="doc-ref-item">
+                            <a href="/documents/{{ item.id }}">
+                                <strong>{{ item.title }}</strong>
+                                <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                            </a>
+                        </article>
+                        {% endfor %}
                     {% endfor %}
                 </div>
-            </section>
+            </div>
+            {% endif %}
+
+            {% if citation_graph.incoming_total %}
+            <div class="doc-ref-group">
+                <h3>Văn bản tham chiếu đến</h3>
+                <div class="doc-ref-list">
+                    {% for group in citation_graph.incoming_groups %}
+                        {% for item in group["items"][:10] %}
+                        <article class="doc-ref-item">
+                            <a href="/documents/{{ item.id }}">
+                                <strong>{{ item.title }}</strong>
+                                <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                            </a>
+                        </article>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
         {% endif %}
-    </aside>
-</main>
+
+        {% if relation_graph.total %}
+        <section class="doc-ref-section" id="doc-validity">
+            <h2 class="doc-ref-section__title">Quan hệ pháp lý</h2>
+            <div class="doc-ref-list">
+                {% for group in relation_graph.outgoing %}
+                    {% for item in group["items"][:8] %}
+                    <article class="doc-ref-item">
+                        <a href="/documents/{{ item.id }}">
+                            <strong>{{ item.title }}</strong>
+                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                        </a>
+                    </article>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <div class="doc-footer-actions">
+            <a class="doc-footer-btn" href="/">← Quay lại lưu trữ</a>
+            <a class="doc-footer-btn" href="/?q=">Tìm kiếm mới</a>
+        </div>
+
+    </div>
+</div>
 {% endblock %}

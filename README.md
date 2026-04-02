@@ -58,7 +58,7 @@ This prototype follows the design north star in `DESIGN.md`:
 - document outline rail
 - cited-authorities panel grouped by link type
 - referenced-by panel for inbound citations from other local documents
-- local cross references
+- **inline cross-reference hyperlinks** — document numbers in the body text are automatically linked (orange underlined text) to other documents in the corpus
 - official-source provenance panel with VBPL and VNCP routes
 - relationship graph panel for inbound and outbound legal links
 - grounded brief panel scoped to the current document
@@ -294,6 +294,14 @@ For the recommended split setup with frontend on Vercel and backend on OCI, use:
 
 - `DEPLOYMENT_OCI_VERCEL.md`
 
+For frontend on Netlify + OCI backend + Appwrite user data, use:
+
+- `DEPLOYMENT_NETLIFY_APPWRITE.md`
+
+For OCI VM maintenance tasks (restarting, backups, bootstrapping), see:
+
+- `deploy/oci/MAINTAIN.md`
+
 ## Recommended free-tier deployment target
 
 The repo is prepared for a Render free web service because:
@@ -350,6 +358,21 @@ pip install uv && uv sync --frozen && uv run python scripts/prepare_demo_bundle.
 ```bash
 uv run uvicorn vlegal_prototype.app:app --app-dir src --host 0.0.0.0 --port $PORT
 ```
+
+## Current Production Backend (OCI)
+
+The full V-Legal prototype is deployed on an OCI free-tier VM with the complete 10,000-document corpus:
+
+- **Public URL:** configured via OCI VM Caddy reverse proxy
+- **Container:** `vlegal-backend` on port 8000, attached to `vnibb_default` network
+- **Data:** `/opt/vlegal/data/full_hf.sqlite` (1.5GB, 10,000 docs)
+- **Routing:** `vnibb-caddy` reverse proxy with auto-provisioned HTTPS
+- **Bootstrap data:** 42 taxonomy subjects, 139 relations, 11,194 citation links
+
+For maintenance tasks (restarting, backups, rebuilding graphs), see:
+
+- `deploy/oci/MAINTAIN.md`
+- `scripts/oci_maintain.sh`
 
 ### Deploy with Docker
 
@@ -410,6 +433,12 @@ Project memory is tracked in:
 - `.agents/memory-bank/decisions.md`
 - `.agents/memory-bank/progress.md`
 - `.agents/memory-bank/roadmap.md`
+
+## Development Journal
+
+Session-by-session progress is documented in:
+
+- `JOURNAL.md`
 
 ## Suggested Next Build Step
 

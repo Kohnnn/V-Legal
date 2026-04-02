@@ -1,0 +1,119 @@
+{
+    "projectId": "69caaf1c0017a098ce99",
+    "endpoint": "https://sgp.cloud.appwrite.io/v1",
+    "tablesDB": [],
+    "tables": [
+        {
+            "$id": "tracked_documents",
+            "databaseId": "69caaf6900186e144449",
+            "name": "tracked_documents",
+            "enabled": true,
+            "rowSecurity": false,
+            "columns": [
+                {
+                    "key": "user_id",
+                    "type": "varchar",
+                    "required": true,
+                    "size": 64
+                },
+                {
+                    "key": "document_id",
+                    "type": "integer",
+                    "required": true
+                },
+                {
+                    "key": "tracked_at",
+                    "type": "datetime",
+                    "required": false
+                },
+                {
+                    "key": "document_title",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 512
+                },
+                {
+                    "key": "document_number",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 255
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "user_id",
+                    "type": "key"
+                }
+            ]
+        },
+        {
+            "$id": "research_views",
+            "databaseId": "69caaf6900186e144449",
+            "name": "research_views",
+            "enabled": true,
+            "rowSecurity": false,
+            "columns": [
+                {
+                    "key": "user_id",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 64
+                },
+                {
+                    "key": "name",
+                    "type": "varchar",
+                    "required": true,
+                    "size": 500
+                },
+                {
+                    "key": "query",
+                    "type": "varchar",
+                    "required": true,
+                    "size": 2000
+                },
+                {
+                    "key": "topic_slug",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 255
+                },
+                {
+                    "key": "legal_type",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 255
+                },
+                {
+                    "key": "year",
+                    "type": "integer",
+                    "required": false
+                },
+                {
+                    "key": "issuer",
+                    "type": "varchar",
+                    "required": false,
+                    "size": 500
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": false
+                },
+                {
+                    "key": "updated_at",
+                    "type": "datetime",
+                    "required": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "user_id",
+                    "type": "key"
+                }
+            ]
+        }
+    ],
+    "buckets": [],
+    "functions": [],
+    "sites": []
+}
