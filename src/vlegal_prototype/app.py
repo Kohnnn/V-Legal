@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import markdown
@@ -13,6 +14,15 @@ from markupsafe import Markup
 from pydantic import BaseModel, Field
 
 from .answering import build_grounded_brief
+from .appwrite_client import (
+    aw_create_research_view,
+    aw_delete_research_view,
+    aw_get_research_view,
+    aw_list_research_views,
+    aw_list_tracked,
+    aw_track_document,
+    aw_untrack_document,
+)
 from .citations import (
     get_citation_count,
     get_document_citation_graph,
@@ -22,14 +32,6 @@ from .citations import (
 from .compare import build_compare_view
 from .db import get_connection, get_stats, initialize_database, is_empty
 from .provenance import build_provenance_profile, enrich_documents_with_provenance
-from .research import (
-    build_default_view_name,
-    build_research_query_string,
-    create_research_view,
-    delete_research_view,
-    get_research_view,
-    list_research_views,
-)
 from .relations import (
     get_document_relation_graph,
     get_relation_count,
@@ -54,8 +56,15 @@ from .taxonomy import (
     get_taxonomy_subject_by_slug,
     get_taxonomy_subjects,
 )
-from .structure import prepare_document_markup
-from .tracking import build_tracking_dashboard
+from .structure import inject_document_links, prepare_document_markup
+from .tracking import build_tracking_dashboard, get_same_subject_updates
+
+
+def get_user_id(request: Request) -> str:
+    uid = request.headers.get("x-user-id", "").strip()
+    if not uid or len(uid) < 8:
+        uid = os.urandom(16).hex()
+    return uid
 
 
 settings = get_settings()
@@ -122,6 +131,33 @@ def render_markdown(value: str) -> Markup:
     return Markup(html)
 
 
+def build_citation_map(citation_graph: dict) -> dict[str, int]:
+    link_map: dict[str, int] = {}
+
+    def norm(value: str) -> str:
+        import unicodedata
+
+        return (
+            "".join(
+                c
+                for c in unicodedata.normalize("NFD", value)
+                if unicodedata.category(c) != "Mn"
+            )
+        ).lower()
+
+    for group in citation_graph.get("outgoing_groups", []):
+        for item in group["items"]:
+            normalized = item.get("document_number", "")
+            if normalized and item["id"] not in link_map.values():
+                link_map[norm(normalized)] = item["id"]
+    for group in citation_graph.get("incoming_groups", []):
+        for item in group["items"]:
+            normalized = item.get("document_number", "")
+            if normalized and item["id"] not in link_map.values():
+                link_map[norm(normalized)] = item["id"]
+    return link_map
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     request: Request,
@@ -133,6 +169,7 @@ def home(
     topic: str | None = None,
     connection=Depends(get_db),
 ):
+    user_id = get_user_id(request)
     stats = get_stats(connection)
     options = get_filter_options(connection)
     taxonomy_subjects = get_taxonomy_subjects(connection)
@@ -156,10 +193,10 @@ def home(
         connection,
         [item["id"] for item in results["items"]],
     )
-    tracked_documents = get_tracked_documents(connection)
+    tracked_documents = aw_list_tracked(user_id)
     recent_documents = get_recent_documents(connection)
     top_legal_types = get_top_legal_types(connection)
-    research_views = list_research_views(connection)
+    research_views = aw_list_research_views(user_id)
     return templates.TemplateResponse(
         name="index.html",
         request=request,
@@ -187,8 +224,89 @@ def home(
 
 @app.get("/tracking", response_class=HTMLResponse)
 def tracking_workbench(request: Request, connection=Depends(get_db)):
-    dashboard = build_tracking_dashboard(connection)
-    research_views = list_research_views(connection)
+    user_id = get_user_id(request)
+    aw_tracked = aw_list_tracked(user_id)
+    tracked_ids = [t["document_id"] for t in aw_tracked]
+    tracked_documents = get_tracked_documents(connection)
+    alerts: list[dict] = []
+    dossiers: list[dict] = []
+    for document in tracked_documents:
+        relation_graph = get_document_relation_graph(connection, document["id"])
+        citation_graph = get_document_citation_graph(connection, document["id"])
+        subjects = get_document_subjects(connection, document["id"])
+        same_subject_updates = get_same_subject_updates(
+            connection, document["id"], document.get("year"), limit=3
+        )
+        document_alerts: list[dict] = []
+        for group in relation_graph.get("incoming", []):
+            if not group["items"]:
+                continue
+            severity = (
+                "high" if group["label"] in {"Amended by", "Replaced by"} else "medium"
+            )
+            top_item = group["items"][0]
+            document_alerts.append(
+                {
+                    "severity": severity,
+                    "kind": "lifecycle",
+                    "headline": f"{group['label']} in local corpus",
+                    "copy": f"{document['title']} links to {len(group['items'])} newer or inbound lifecycle document(s).",
+                    "document": document,
+                    "target": top_item,
+                }
+            )
+        if citation_graph.get("incoming_total"):
+            top_group = citation_graph["incoming_groups"][0]
+            top_item = top_group["items"][0]
+            document_alerts.append(
+                {
+                    "severity": "medium",
+                    "kind": "citation",
+                    "headline": "Referenced by newer local documents",
+                    "copy": f"{document['title']} is cited by {citation_graph['incoming_total']} local section reference(s).",
+                    "document": document,
+                    "target": top_item,
+                }
+            )
+        if same_subject_updates:
+            document_alerts.append(
+                {
+                    "severity": "low",
+                    "kind": "topic",
+                    "headline": "Newer same-subject materials available",
+                    "copy": f"Found {len(same_subject_updates)} recent documents in the same Phap dien subject area.",
+                    "document": document,
+                    "target": same_subject_updates[0],
+                }
+            )
+        alerts.extend(document_alerts)
+        dossiers.append(
+            {
+                "document": document,
+                "subjects": subjects,
+                "incoming_citations": citation_graph.get("incoming_total", 0),
+                "outgoing_citations": citation_graph.get("outgoing_total", 0),
+                "lifecycle_links": relation_graph.get("total", 0),
+                "alerts": document_alerts,
+                "same_subject_updates": same_subject_updates,
+            }
+        )
+    SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+    alerts.sort(
+        key=lambda item: (
+            SEVERITY_ORDER[item["severity"]],
+            item["target"].get("issuance_date") or "",
+            item["document"].get("tracked_at") or "",
+        ),
+        reverse=False,
+    )
+    dashboard = {
+        "tracked_documents": tracked_documents,
+        "alerts": alerts,
+        "alert_count": len(alerts),
+        "dossiers": dossiers,
+    }
+    research_views = aw_list_research_views(user_id)
     stats = get_stats(connection)
     return templates.TemplateResponse(
         name="tracking.html",
@@ -204,6 +322,7 @@ def tracking_workbench(request: Request, connection=Depends(get_db)):
 
 @app.get("/documents/{document_id}", response_class=HTMLResponse)
 def document_detail(request: Request, document_id: int, connection=Depends(get_db)):
+    user_id = get_user_id(request)
     document = get_document(connection, document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -217,20 +336,25 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     provenance = build_provenance_profile(document)
     relation_graph = get_document_relation_graph(connection, document_id)
     citation_graph = get_document_citation_graph(connection, document_id)
+    citation_map = build_citation_map(citation_graph)
+    document_html = render_markdown(document["content"])
+    document_html_str = inject_document_links(str(document_html), citation_map)
+    aw_tracked = aw_list_tracked(user_id)
+    aw_tracked_ids = {t["document_id"] for t in aw_tracked}
     return templates.TemplateResponse(
         name="document.html",
         request=request,
         context={
             "request": request,
             "document": document,
-            "document_html": render_markdown(document["content"]),
+            "document_html": Markup(document_html_str),
             "document_outline": outline,
             "document_subjects": document_subjects,
             "provenance": provenance,
             "citation_graph": citation_graph,
             "relation_graph": relation_graph,
             "related_documents": related_documents,
-            "is_tracked": document_id in tracked_ids,
+            "is_tracked": document_id in aw_tracked_ids,
         },
     )
 
@@ -271,6 +395,7 @@ def create_research_view_route(
     issuer: str = Form(default=""),
     connection=Depends(get_db),
 ):
+    user_id = get_user_id(request)
     active_topic = get_taxonomy_subject_by_slug(connection, topic) if topic else None
     resolved_name = name.strip() or build_default_view_name(
         q,
@@ -278,31 +403,32 @@ def create_research_view_route(
         legal_type,
     )
     year_value = int(year) if year.strip() else None
-    view_id = create_research_view(
-        connection,
+    view = aw_create_research_view(
+        user_id=user_id,
         name=resolved_name,
         query=q,
-        topic_slug=topic or None,
-        legal_type=legal_type or None,
-        year=year_value,
-        issuer=issuer or None,
+        topic_slug=topic or "",
+        legal_type=legal_type or "",
+        year=year_value or 0,
+        issuer=issuer or "",
     )
-    return RedirectResponse(url=f"/research/views/{view_id}", status_code=303)
+    return RedirectResponse(url=f"/research/views/{view['$id']}", status_code=303)
 
 
 @app.get("/research/views/{view_id}", response_class=HTMLResponse)
 def research_view_detail(
     request: Request,
-    view_id: int,
+    view_id: str,
     page: int = 1,
     connection=Depends(get_db),
 ):
-    view = get_research_view(connection, view_id)
+    user_id = get_user_id(request)
+    view = aw_get_research_view(user_id, view_id)
     if not view:
         raise HTTPException(status_code=404, detail="Research view not found")
 
     active_topic = (
-        get_taxonomy_subject_by_slug(connection, view["topic_slug"])
+        get_taxonomy_subject_by_slug(connection, view.get("topic_slug"))
         if view.get("topic_slug")
         else None
     )
@@ -341,10 +467,12 @@ def research_view_detail(
 
 
 @app.post("/research/views/{view_id}/delete")
-def delete_research_view_route(view_id: int, connection=Depends(get_db)):
-    if not get_research_view(connection, view_id):
+def delete_research_view_route(
+    request: Request, view_id: str, connection=Depends(get_db)
+):
+    user_id = get_user_id(request)
+    if not aw_delete_research_view(user_id, view_id):
         raise HTTPException(status_code=404, detail="Research view not found")
-    delete_research_view(connection, view_id)
     return RedirectResponse(url="/tracking", status_code=303)
 
 
@@ -371,16 +499,32 @@ def api_search(
 
 
 @app.get("/api/tracked")
-def api_tracked(connection=Depends(get_db)):
-    return JSONResponse({"items": get_tracked_documents(connection)})
+def api_tracked(request: Request):
+    user_id = get_user_id(request)
+    items = aw_list_tracked(user_id)
+    return JSONResponse({"items": items})
 
 
 @app.post("/api/tracked/{document_id}")
 def api_track_document(
-    document_id: int, payload: TrackRequest, connection=Depends(get_db)
+    request: Request,
+    document_id: int,
+    payload: TrackRequest,
+    connection=Depends(get_db),
 ):
-    if not set_document_tracking(connection, document_id, payload.tracked):
+    user_id = get_user_id(request)
+    doc = get_document(connection, document_id)
+    if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    if payload.tracked:
+        aw_track_document(
+            user_id=user_id,
+            document_id=document_id,
+            document_title=doc.get("title", ""),
+            document_number=doc.get("document_number", ""),
+        )
+    else:
+        aw_untrack_document(user_id, document_id)
     stats = get_stats(connection)
     return JSONResponse(
         {

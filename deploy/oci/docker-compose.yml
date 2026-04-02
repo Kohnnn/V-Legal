@@ -7,5 +7,13 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - /opt/vlegal/data:/app/data
     env_file:
       - .env
+    networks:
+      - vnibb_default
+
+networks:
+  vnibb_default:
+    external: true

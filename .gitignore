@@ -27,3 +27,5 @@ NUL
 .agent/
 .playwright-cli/
 deployed-screenshots/
+command
+full_hf.sqlite.tar.gz

@@ -120,38 +120,75 @@ Also test:
 - `/tracking`
 - `/compare/447330/367747`
 
-## Step 6: Put A Domain In Front Of The Backend
+## Step 6: Route V-Legal Through The Existing Caddy Proxy
 
-Recommended:
+The OCI VM already runs `vnibb-caddy` (Caddy) on ports 80/443. V-Legal can share that Caddy by adding a subdomain block.
 
-- point a subdomain like `api.your-domain.com` to the OCI VM
-- use Caddy as reverse proxy
+The Caddyfile lives at `/srv/vnibb/deployment/Caddyfile` on the VM (mounted into the `vnibb-caddy` container).
 
-Example Caddy setup:
+### 6a. Update The Caddyfile
 
-1. copy `deploy/oci/Caddyfile.example`
-2. replace `api.your-domain.com`
-3. run Caddy on the VM
-
-Simple Caddy file:
+Add this block to the existing Caddyfile:
 
 ```caddy
-api.your-domain.com {
-    encode gzip
-    reverse_proxy 127.0.0.1:8000
+vlegal.{$SITE_HOSTNAME} {
+    encode gzip zstd
+    reverse_proxy vlegal-backend:8000
 }
 ```
 
+`$SITE_HOSTNAME` is already set in the Caddy container's environment (e.g. `213.35.101.237.sslip.io`).
+
+Then restart Caddy:
+
+```bash
+docker restart vnibb-caddy
+```
+
+This provisions a Let's Encrypt certificate for `vlegal.{$SITE_HOSTNAME}` automatically and adds HTTPS.
+
+### 6b. Make The Network Connection Persistent
+
+The `vlegal-backend` container must be on the same Docker network as Caddy. Update `deploy/oci/docker-compose.yml` to include the external `vnibb_default` network:
+
+```yaml
+services:
+  vlegal-backend:
+    ...
+    networks:
+      - vnibb_default
+
+networks:
+  vnibb_default:
+    external: true
+```
+
+Then on every deploy, the container will be on the correct network.
+
+### 6c. Verify
+
+```bash
+curl https://vlegal.213.35.101.237.sslip.io/health
+# {"status":"ok","documents":10000}
+```
+
+Public URL: `https://vlegal.213.35.101.237.sslip.io`
+
 This gives you:
 
-- HTTPS
-- stable API origin for Vercel
+- HTTPS with auto-provisioned certificate
+- stable API origin for frontend
+- `http://` redirects to `https://` automatically
 
 ## Step 7: Configure The Vercel Frontend
 
-In Vercel, set your frontend env var to the OCI backend base URL.
+In Vercel, set your frontend env var to the V-Legal backend public URL.
 
-Typical example:
+```env
+NEXT_PUBLIC_API_BASE_URL=https://vlegal.213.35.101.237.sslip.io
+```
+
+Or for a custom domain, use:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com
@@ -233,6 +270,118 @@ My recommendation: `Option A`.
 3. verify CORS works
 4. expand the corpus gradually on the OCI VM
 5. later decide whether to stay on SQLite or move to Postgres
+
+## Full-Corpus OCI Deployment (Persistent Disk)
+
+This section covers deploying with the full `full_hf.sqlite` corpus on a persistent volume.
+
+### Architecture Summary
+
+- Backend on OCI free tier VM
+- Data directory: `/opt/vlegal/data` on a bind-mounted host path
+- SQLite database `full_hf.sqlite` (10,000 documents, ~0 taxonomy subjects) lives on persistent disk
+- Docker compose uses a named volume that binds to `/opt/vlegal/data` on the host
+
+### Step 1: Create The Data Directory On OCI
+
+SSH into your VM and create the data directory:
+
+```bash
+sudo mkdir -p /opt/vlegal/data
+sudo chown -R $(whoami):$(whoami) /opt/vlegal/data
+```
+
+### Step 2: Copy `full_hf.sqlite` To OCI
+
+From your **local** machine (adjust the path to your OCI VM):
+
+```bash
+# Using scp directly via OCI_SSH_CONNECT env var reference
+scp data/full_hf.sqlite user@your-oci-vm:/opt/vlegal/data/full_hf.sqlite
+```
+
+Or if `OCI_SSH_CONNECT` is set in your shell:
+
+```bash
+HOST=$(echo $OCI_SSH_CONNECT | cut -d@ -f2)
+scp data/full_hf.sqlite $OCI_SSH_CONNECT:/opt/vlegal/data/full_hf.sqlite
+```
+
+### Step 3: Seed Taxonomy And Rebuild Graphs On OCI
+
+The `full_hf.sqlite` has no taxonomy subjects. Run these inside the container:
+
+```bash
+# Start the container first
+docker compose -f deploy/oci/docker-compose.yml --env-file deploy/oci/.env up -d
+
+# Seed taxonomy from official source
+docker exec vlegal-backend uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
+
+# Rebuild relationship graph
+docker exec vlegal-backend uv run python scripts/bootstrap_relationship_graph.py
+
+# Rebuild citation index
+docker exec vlegal-backend uv run python scripts/bootstrap_citation_index.py
+```
+
+This seeds 42 official taxonomy subjects and rebuilds the relationship + citation graphs on the full corpus.
+
+### Step 4: Configure The OCI Env File
+
+Create `deploy/oci/.env`:
+
+```env
+PORT=8000
+VLEGAL_ENVIRONMENT=production
+VLEGAL_PUBLIC_BASE_URL=https://api.your-domain.com
+VLEGAL_CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app,http://localhost:3000
+VLEGAL_DATABASE_PATH=/app/data/full_hf.sqlite
+```
+
+### Step 5: Run
+
+```bash
+docker compose -f deploy/oci/docker-compose.yml --env-file deploy/oci/.env up -d --build
+```
+
+Verify:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+You should see `"documents": 10000` in the response.
+
+### Step 6: Domain / Reverse Proxy
+
+Use Caddy as described in the earlier section. Example `Caddyfile`:
+
+```caddy
+api.your-domain.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+### Upgrading The Corpus Later
+
+To add more documents to the persistent SQLite:
+
+```bash
+docker exec vlegal-backend uv run python scripts/bootstrap_hf_dataset.py --skip 10000 --limit 5000
+```
+
+The `--skip 10000` starts after the existing 10,000 documents.
+
+### Backing Up
+
+Back up the persistent SQLite regularly:
+
+```bash
+# On OCI VM
+sudo cp /opt/vlegal/data/full_hf.sqlite /opt/vlegal/data/full_hf.sqlite.backup-$(date +%Y%m%d)
+```
 
 ## Troubleshooting
 
