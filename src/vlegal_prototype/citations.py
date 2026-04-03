@@ -57,6 +57,26 @@ def summarize_excerpt(value: str | None, max_length: int = 220) -> str:
     return collapsed[: max_length - 3].rstrip() + "..."
 
 
+def extract_reference_quote(
+    text: str | None, raw_reference: str | None, *, window: int = 140
+) -> str:
+    collapsed = " ".join((text or "").split())
+    if not collapsed:
+        return ""
+    if raw_reference:
+        match = re.search(re.escape(raw_reference), collapsed, re.IGNORECASE)
+        if match:
+            start = max(0, match.start() - window)
+            end = min(len(collapsed), match.end() + window)
+            snippet = collapsed[start:end].strip()
+            if start > 0:
+                snippet = f"... {snippet}"
+            if end < len(collapsed):
+                snippet = f"{snippet} ..."
+            return snippet
+    return summarize_excerpt(collapsed, max_length=min(window * 2, 260))
+
+
 LINK_TYPE_PATTERNS = (
     (
         "replaces",
@@ -589,6 +609,9 @@ def get_inline_citation_preview(
             "label": row["source_section_label"],
             "anchor": row["source_section_anchor"],
             "excerpt": summarize_excerpt(row["source_section_text"], max_length=180),
+            "quote": extract_reference_quote(
+                row["source_section_text"], row["raw_reference"]
+            ),
         },
         "mention": {
             "id": row["mention_id"],

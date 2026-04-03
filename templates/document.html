@@ -71,6 +71,17 @@
             </main>
 
             <aside class="doc-col-side">
+                <section class="doc-sidebar-card doc-sidebar-card--citation-focus" data-citation-rail>
+                    <div class="doc-sidebar-card__heading">
+                        <p class="section-label">Citation focus</p>
+                        <h2>Reading companion</h2>
+                    </div>
+                    <p class="doc-citation-rail__empty" data-citation-rail-empty>
+                        Hover a citation for a quick preview, then pin it here while you continue reading the current article.
+                    </p>
+                    <div class="doc-citation-rail__body" data-citation-rail-body hidden></div>
+                </section>
+
                 {% if document_outline %}
                     <section class="doc-sidebar-card" id="doc-toc">
                         <div class="doc-sidebar-card__heading">
