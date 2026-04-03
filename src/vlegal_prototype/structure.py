@@ -676,7 +676,11 @@ def build_document_display_html(
 
 
 DOC_NUMBER_PATTERN_V2 = re.compile(
-    r"\b([0-9]{1,4}[a-z]?(?:/[0-9]{2,4})?(?:/[A-Za-z0-9\u00c0-\u1ef9\-]+){1,10})\b"
+    r"\b([0-9]{1,4}[a-z]?(?:[/-][0-9]{2,4})?(?:[/-][A-Za-z0-9\u00c0-\u1ef9]*[A-Za-z\u00c0-\u1ef9][A-Za-z0-9\u00c0-\u1ef9]*)+)\b"
+)
+CONTEXTUAL_DOC_REFERENCE_PATTERN_V2 = re.compile(
+    r"\b(?:Sắc lệnh|Pháp lệnh|Nghị định|Nghị quyết|Quyết định|Chỉ thị|Thông tư(?: liên tịch)?|Lệnh|Luật|Bộ luật)\s*số\s*([0-9]{1,4}(?:[/-][0-9]{2,4})?(?:[/-][A-Za-z0-9\u00c0-\u1ef9\-]+)?)\b",
+    re.IGNORECASE,
 )
 
 
@@ -684,6 +688,9 @@ def _extract_raw_references(text: str) -> list[tuple[str, int, int]]:
     refs = []
     for m in DOC_NUMBER_PATTERN_V2.finditer(text):
         refs.append((m.group(1), m.start(), m.end()))
+    for m in CONTEXTUAL_DOC_REFERENCE_PATTERN_V2.finditer(text):
+        refs.append((m.group(1), m.start(1), m.end(1)))
+    refs.sort(key=lambda item: (item[1], -(item[2] - item[1])))
     return refs
 
 
@@ -737,13 +744,13 @@ def inject_document_links(html: str, citation_map: dict[str, int]) -> str:
             )
 
     result = list(html)
-    offset = 0
-    for (start, end), replacement in sorted(replacements, key=lambda x: x[0][0]):
+    for (start, end), replacement in sorted(
+        replacements, key=lambda item: item[0][0], reverse=True
+    ):
         for i in range(end - 1, start - 1, -1):
             if i < len(result):
                 result.pop(i)
         for i, ch in enumerate(replacement):
             result.insert(start + i, ch)
-        offset += len(replacement) - (end - start)
 
     return "".join(result)

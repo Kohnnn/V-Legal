@@ -58,6 +58,11 @@
   - reduced the latest-records block to two items
   - reduced hero and showcase spacing again
 - Added section-level cross-reference badges directly inside the legal reader so cited hotspots surface at the article heading, not only in the outline rail.
+- Improved citation and database robustness for the larger live corpus:
+  - SQLite connections now use a longer timeout plus `busy_timeout`, `synchronous = NORMAL`, and in-memory temp storage
+  - document-number matching now supports historical references such as `sắc lệnh số 63`, `91-SL`, and similar contextual forms
+  - target matching now uses document-number aliases and legal-type hints during resolution
+  - relation and citation rebuilds can now map more historical references that previously failed strict parsing
 
 ### Verification
 

@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS documents (
     imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_documents_document_number
+    ON documents(document_number);
+
 CREATE TABLE IF NOT EXISTS passages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -191,10 +194,18 @@ END;
 
 def get_connection() -> sqlite3.Connection:
     settings = get_settings()
-    connection = sqlite3.connect(settings.database_path, check_same_thread=False)
+    connection = sqlite3.connect(
+        settings.database_path,
+        check_same_thread=False,
+        timeout=30.0,
+    )
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA journal_mode = WAL")
+    connection.execute("PRAGMA busy_timeout = 30000")
+    connection.execute("PRAGMA synchronous = NORMAL")
+    connection.execute("PRAGMA temp_store = MEMORY")
+    connection.execute("PRAGMA cache_size = -20000")
     return connection
 
 
@@ -208,8 +219,33 @@ def connection_context() -> sqlite3.Connection:
 
 
 def initialize_database(connection: sqlite3.Connection) -> None:
-    connection.executescript(SCHEMA)
-    connection.commit()
+    try:
+        connection.executescript(SCHEMA)
+        connection.commit()
+    except sqlite3.OperationalError as exc:
+        if "readonly" not in str(exc).lower():
+            raise
+
+        required_tables = {
+            "documents",
+            "passages",
+            "tracked_documents",
+            "taxonomy_subjects",
+            "document_subjects",
+            "document_relations",
+            "document_sections",
+            "citation_mentions",
+            "citation_links",
+            "research_views",
+        }
+        existing_tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')"
+            ).fetchall()
+        }
+        if not required_tables.issubset(existing_tables):
+            raise
 
 
 def reset_database(connection: sqlite3.Connection) -> None:

@@ -4,10 +4,11 @@ import re
 import sqlite3
 
 from .relations import (
-    DOC_NUMBER_PATTERN,
     choose_target_document,
     get_document_relation_graph,
+    iter_document_reference_matches,
     normalize_document_number,
+    resolve_target_document,
 )
 from .structure import extract_sections
 from .taxonomy import normalize_ascii
@@ -44,6 +45,7 @@ ARTICLE_REFERENCE_PATTERN = re.compile(r"\bdieu\s+\d+[a-z]?\b", re.IGNORECASE)
 ARTICLE_REFERENCE_CAPTURE_PATTERN = re.compile(r"\bdieu\s+(\d+[a-z]?)\b", re.IGNORECASE)
 CLAUSE_REFERENCE_PATTERN = re.compile(r"\bkhoan\s+(\d+[a-z]?)\b", re.IGNORECASE)
 POINT_REFERENCE_PATTERN = re.compile(r"\bdiem\s+([a-z])\b", re.IGNORECASE)
+REFERENCE_DATE_PATTERN = re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-](\d{2,4})\b")
 
 
 def normalize_section_label(value: str | None) -> str:
@@ -93,6 +95,18 @@ def extract_reference_label(window_text: str) -> str | None:
         label_parts.append(f"Khoản {clause_match.group(1)}")
     label_parts.append(f"Điều {article_match.group(1)}")
     return " ".join(label_parts)
+
+
+def extract_reference_year(window_text: str) -> int | None:
+    max_year = 2100
+    for match in REFERENCE_DATE_PATTERN.finditer(window_text):
+        year_token = match.group(1)
+        year = int(year_token)
+        if len(year_token) == 2:
+            year += 1900 if year >= 40 else 2000
+        if 1800 <= year <= max_year:
+            return year
+    return None
 
 
 def extract_reference_quote(
@@ -171,32 +185,45 @@ def extract_section_mentions(section: dict, source_document: dict) -> list[dict]
         source_document.get("document_number") or ""
     )
     mentions: list[dict] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str, str]] = set()
     mention_order = 1
 
-    for match in DOC_NUMBER_PATTERN.finditer(normalized_text):
-        referenced_number = normalize_document_number(match.group(0))
+    for match in iter_document_reference_matches(normalized_text):
+        referenced_number = match["referenced_number"]
         if not referenced_number or referenced_number == source_number:
             continue
 
-        window_before = normalized_text[max(0, match.start() - 180) : match.start()]
-        window_after = normalized_text[match.end() : match.end() + 140]
+        window_before = normalized_text[max(0, match["start"] - 180) : match["start"]]
+        window_after = normalized_text[match["end"] : match["end"] + 140]
         reference_window = f"{window_before} {window_after}".strip()
         link_type, cue_phrase = infer_link_type(window_before)
         referenced_label = extract_reference_label(reference_window)
-        key = (referenced_number, link_type, referenced_label or "")
+        reference_year = extract_reference_year(window_after) or extract_reference_year(
+            reference_window
+        )
+        legal_type_hint = match.get("legal_type_hint") or ""
+        key = (
+            referenced_number,
+            link_type,
+            referenced_label or "",
+            legal_type_hint,
+            str(reference_year or ""),
+        )
         if key in seen:
             continue
 
         mentions.append(
             {
                 "mention_order": mention_order,
-                "raw_reference": match.group(0),
+                "raw_reference": match["raw_reference"],
                 "referenced_number": referenced_number,
                 "referenced_label": referenced_label,
                 "cue_phrase": cue_phrase,
                 "mention_type": "document",
                 "link_type": link_type,
+                "legal_type_hint": match.get("legal_type_hint"),
+                "reference_year": reference_year,
+                "reference_context": reference_window,
                 "confidence": "high" if cue_phrase or referenced_label else "medium",
             }
         )
@@ -386,7 +413,12 @@ def rebuild_citation_index(connection: sqlite3.Connection) -> int:
                         ),
                     )
                     target_document = choose_target_document(
-                        document, mention["referenced_number"], number_index
+                        document,
+                        mention["referenced_number"],
+                        number_index,
+                        reference_legal_type=mention.get("legal_type_hint"),
+                        reference_year=mention.get("reference_year"),
+                        reference_context_text=mention.get("reference_context"),
                     )
                     if not target_document:
                         continue
@@ -427,6 +459,54 @@ def get_section_citation_counts(
         (document_id,),
     ).fetchall()
     return {row["anchor"]: row["total"] for row in rows}
+
+
+def needs_runtime_citation_resolution(mention: dict) -> bool:
+    referenced_number = mention.get("referenced_number") or ""
+    return bool(mention.get("legal_type_hint")) or "/" not in referenced_number
+
+
+def build_runtime_citation_support(
+    connection: sqlite3.Connection, document: dict
+) -> dict:
+    citation_map: dict[str, int] = {}
+    section_counts: dict[str, int] = {}
+    section_labels: dict[str, int] = {}
+
+    for section in extract_sections(document["content"]):
+        if not section.get("text"):
+            continue
+        section_total = 0
+        for mention in extract_section_mentions(section, document):
+            if not needs_runtime_citation_resolution(mention):
+                continue
+            target_document = resolve_target_document(
+                connection,
+                document,
+                mention["referenced_number"],
+                reference_legal_type=mention.get("legal_type_hint"),
+                reference_year=mention.get("reference_year"),
+                reference_context_text=mention.get("reference_context"),
+            )
+            if not target_document:
+                continue
+            citation_map.setdefault(
+                normalize_document_number(mention["raw_reference"]),
+                target_document["id"],
+            )
+            section_total += 1
+
+        if section_total:
+            section_counts[section["anchor"]] = section_total
+            section_labels[section["label"]] = (
+                section_labels.get(section["label"], 0) + section_total
+            )
+
+    return {
+        "citation_map": citation_map,
+        "section_counts": section_counts,
+        "section_labels": section_labels,
+    }
 
 
 def _group_citation_rows(rows: list[sqlite3.Row], direction: str) -> list[dict]:
