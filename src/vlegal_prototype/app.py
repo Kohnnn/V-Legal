@@ -24,6 +24,7 @@ from .appwrite_client import (
     aw_untrack_document,
 )
 from .citations import (
+    build_runtime_citation_support,
     get_citation_count,
     get_document_citation_graph,
     get_inline_citation_preview,
@@ -338,9 +339,19 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     related_documents = get_related_documents(connection, document)
     _, outline = prepare_document_markup(document["content"])
     section_citation_counts = get_section_citation_counts(connection, document_id)
+    runtime_citation_support = build_runtime_citation_support(connection, document)
+    for anchor, total in runtime_citation_support["section_counts"].items():
+        section_citation_counts[anchor] = max(
+            section_citation_counts.get(anchor, 0), total
+        )
     section_citation_labels: dict[str, int] = {}
     for item in outline:
-        item["citation_count"] = section_citation_counts.get(item["anchor"], 0)
+        runtime_count = runtime_citation_support["section_counts"].get(
+            item["anchor"], 0
+        )
+        item["citation_count"] = max(
+            section_citation_counts.get(item["anchor"], 0), runtime_count
+        )
         if item["citation_count"]:
             section_citation_labels[item["heading"]] = (
                 section_citation_labels.get(item["heading"], 0) + item["citation_count"]
@@ -351,6 +362,11 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     relation_graph = get_document_relation_graph(connection, document_id)
     citation_graph = get_document_citation_graph(connection, document_id)
     citation_map = build_citation_map(citation_graph)
+    citation_map = {**citation_map, **runtime_citation_support["citation_map"]}
+    for label, total in runtime_citation_support["section_labels"].items():
+        section_citation_labels[label] = max(
+            section_citation_labels.get(label, 0), total
+        )
     document_display_html = build_document_display_html(
         document["content"],
         citation_map,
