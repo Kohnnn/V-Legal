@@ -812,7 +812,7 @@ select:focus {
 
 .archive-page--landing {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .archive-hero,
@@ -824,10 +824,10 @@ select:focus {
 
 .archive-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
+  gap: 14px;
   align-items: start;
-  padding: 26px 28px;
+  padding: 16px 18px;
 }
 
 .archive-hero__copy,
@@ -838,32 +838,33 @@ select:focus {
 .landing-rank-list,
 .issued-card__content {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .archive-hero__copy h1 {
   margin: 0;
-  max-width: 13ch;
+  max-width: 15ch;
   font-family: "Noto Serif", serif;
-  font-size: clamp(2.2rem, 4vw, 3.45rem);
-  line-height: 1.03;
+  font-size: clamp(1.65rem, 2.5vw, 2.35rem);
+  line-height: 1.02;
 }
 
 .archive-hero__lead {
   margin: 0;
-  max-width: 62ch;
+  max-width: 48ch;
   color: var(--ink-soft);
-  line-height: 1.65;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .archive-hero__metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .archive-hero__metrics article {
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: var(--surface-low);
 }
 
@@ -882,15 +883,15 @@ select:focus {
 
 .archive-hero__metrics strong {
   display: block;
-  margin-top: 0.4rem;
+  margin-top: 0.3rem;
   font-family: "Noto Serif", serif;
-  font-size: 1.16rem;
+  font-size: 1rem;
 }
 
 .archive-search-card {
   display: grid;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 10px;
+  padding: 12px 14px;
   background: var(--surface-low);
 }
 
@@ -910,7 +911,7 @@ select:focus {
 .archive-search-card__suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -952,7 +953,7 @@ select:focus {
 .archive-showcase {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.7fr);
-  gap: 20px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -962,15 +963,15 @@ select:focus {
 
 .issued-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .issued-card {
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 14px;
   align-items: start;
-  padding: 18px 20px;
+  padding: 14px 16px;
 }
 
 .issued-card__date {
@@ -1030,20 +1031,20 @@ select:focus {
 }
 
 .archive-category-section {
-  gap: 14px;
+  gap: 12px;
 }
 
 .archive-category-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .archive-category-card {
   display: grid;
   gap: 10px;
-  min-height: 176px;
-  padding: 20px;
+  min-height: 154px;
+  padding: 16px;
   border: 1px solid rgba(27, 28, 21, 0.08);
 }
 
@@ -2926,6 +2927,7 @@ select:focus {
   gap: 8px;
   margin-top: 10px;
   text-align: center;
+  position: relative;
 }
 
 .law-heading-block__label {
@@ -2953,6 +2955,7 @@ select:focus {
 
 .law-article__header {
   margin-top: 10px;
+  position: relative;
 }
 
 .law-article__label {
@@ -2960,6 +2963,27 @@ select:focus {
   font-family: "Noto Serif", serif;
   font-size: 1.18rem;
   line-height: 1.4;
+}
+
+.law-section-meta {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.law-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  background: rgba(7, 109, 165, 0.08);
+  border: 1px solid rgba(7, 109, 165, 0.16);
+  color: var(--navy);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .law-article__lead {
@@ -3156,6 +3180,22 @@ select:focus {
   }
 }
 
+@media (min-width: 1240px) {
+  .law-article__header .law-section-meta,
+  .law-heading-block .law-section-meta {
+    position: absolute;
+    top: 0;
+    right: -152px;
+    width: 136px;
+    margin-top: 0;
+    justify-content: flex-start;
+  }
+
+  .law-heading-block .law-section-meta {
+    top: 4px;
+  }
+}
+
 @media (max-width: 900px) {
   .law-document {
     padding: 30px 22px;
@@ -3308,6 +3348,13 @@ select:focus {
   color: var(--ink-soft);
   font-size: 0.76rem;
   line-height: 1.5;
+}
+
+.citation-preview__path {
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
 }
 
 .citation-preview__diff-list {

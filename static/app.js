@@ -371,7 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="citation-preview__block">
           <strong>Reference Context</strong>
-          <p>${escapeHtml(sourceSection.label || "Current section")}${mention.raw_reference ? ` · ${escapeHtml(mention.raw_reference)}` : ""}</p>
+          <p>${escapeHtml(sourceSection.label || "Current section")}${mention.referenced_label ? ` · ${escapeHtml(mention.referenced_label)}` : mention.raw_reference ? ` · ${escapeHtml(mention.raw_reference)}` : ""}</p>
           ${sourceQuoteMarkup}
         </div>
 
@@ -379,6 +379,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="citation-preview__block">
             <strong>Referenced Section</strong>
             <a href="/documents/${target.id}#${escapeHtml(targetSection.anchor)}">${escapeHtml(targetSection.label)}</a>
+            ${mention.referenced_label && mention.referenced_label !== targetSection.label ? `<small class="citation-preview__path">Requested reference: ${escapeHtml(mention.referenced_label)}</small>` : ""}
             ${targetSection.excerpt ? `<p>${escapeHtml(targetSection.excerpt)}</p>` : ""}
           </div>
         ` : ""}

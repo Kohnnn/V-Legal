@@ -7,26 +7,18 @@
     <section class="archive-hero">
         <div class="archive-hero__copy">
             <p class="section-label">V-Legal Archive</p>
-            <h1>Navigate Vietnamese law with search, citation context, and article-level comparison.</h1>
+            <h1>Search Vietnamese law by document, article, and citation.</h1>
             <p class="archive-hero__lead">
-                Read legal texts in a more formal document view, trace related provisions, and move from one cited law to the next without losing your reading context.
+                Read full legal texts, follow cross-references, and compare updated provisions without leaving the archive.
             </p>
 
             <div class="archive-hero__metrics">
                 <article>
-                    <span>Documents</span>
+                    <span>Corpus</span>
                     <strong>{{ stats["document_count"] }}</strong>
                 </article>
                 <article>
-                    <span>Citation links</span>
-                    <strong>{{ stats["citation_link_count"] }}</strong>
-                </article>
-                <article>
-                    <span>Lifecycle links</span>
-                    <strong>{{ stats["relation_count"] }}</strong>
-                </article>
-                <article>
-                    <span>Year range</span>
+                    <span>Coverage</span>
                     <strong>
                         {% if stats["min_year"] and stats["max_year"] %}
                             {{ stats["min_year"] }}-{{ stats["max_year"] }}
@@ -98,6 +90,26 @@
         </div>
     </section>
 
+    <section class="archive-category-section" id="archive-categories">
+        <div class="column-heading column-heading--landing">
+            <div>
+                <p class="section-label">The foundation</p>
+                <h2>Legal categories</h2>
+            </div>
+            <a class="entry-link entry-link--ghost" href="#archive-results">Browse library</a>
+        </div>
+
+        <div class="archive-category-grid">
+            {% for item in top_legal_types[:6] %}
+                <a class="archive-category-card" href="/?legal_type={{ item.legal_type }}">
+                    <span class="archive-category-card__meta">{{ item.total }} documents</span>
+                    <strong>{{ item.legal_type }}</strong>
+                    <p>Browse indexed records, recent amendments, and citation context for {{ item.legal_type|lower }} materials.</p>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+
     <section class="archive-showcase">
         <div class="archive-showcase__issues">
             <div class="column-heading column-heading--landing">
@@ -109,7 +121,7 @@
             </div>
 
             <div class="issued-list">
-                {% for item in recent_documents[:3] %}
+                {% for item in recent_documents[:2] %}
                     <article class="issued-card">
                         <div class="issued-card__date">
                             <small>Issue date</small>
@@ -165,26 +177,6 @@
                 </section>
             {% endif %}
         </aside>
-    </section>
-
-    <section class="archive-category-section" id="archive-categories">
-        <div class="column-heading column-heading--landing">
-            <div>
-                <p class="section-label">The foundation</p>
-                <h2>Legal categories</h2>
-            </div>
-            <a class="entry-link entry-link--ghost" href="#archive-results">Browse library</a>
-        </div>
-
-        <div class="archive-category-grid">
-            {% for item in top_legal_types[:6] %}
-                <a class="archive-category-card" href="/?legal_type={{ item.legal_type }}">
-                    <span class="archive-category-card__meta">{{ item.total }} documents</span>
-                    <strong>{{ item.legal_type }}</strong>
-                    <p>Browse indexed records, recent amendments, and citation context for {{ item.legal_type|lower }} materials.</p>
-                </a>
-            {% endfor %}
-        </div>
     </section>
 
     <section class="archive-grid archive-grid--landing" id="archive-results">

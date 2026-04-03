@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 from contextlib import contextmanager
+from datetime import datetime
 
 from .settings import get_settings
 
@@ -296,6 +297,7 @@ def import_documents(connection: sqlite3.Connection, records: Iterable[dict]) ->
 
 
 def get_stats(connection: sqlite3.Connection) -> dict:
+    max_reasonable_year = datetime.utcnow().year + 1
     document_count = connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
     authority_count = connection.execute(
         "SELECT COUNT(DISTINCT issuing_authority) FROM documents WHERE COALESCE(issuing_authority, '') <> ''"
@@ -316,7 +318,8 @@ def get_stats(connection: sqlite3.Connection) -> dict:
         "SELECT COUNT(*) FROM research_views"
     ).fetchone()[0]
     years = connection.execute(
-        "SELECT MIN(year) AS min_year, MAX(year) AS max_year FROM documents WHERE year IS NOT NULL"
+        "SELECT MIN(year) AS min_year, MAX(year) AS max_year FROM documents WHERE year BETWEEN ? AND ?",
+        (1800, max_reasonable_year),
     ).fetchone()
     last_import = connection.execute(
         "SELECT MAX(imported_at) AS imported_at FROM documents"

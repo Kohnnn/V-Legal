@@ -44,6 +44,20 @@
   - added source-side citation quotes to the preview payload
   - added a pinned citation "reading companion" card in the document side rail
   - added clearer inline citation states for resolved, section-aware, lifecycle-aware, active, and pinned references
+- Updated the Hugging Face ingest path for the current `th1nhng0/vietnamese-legal-documents` dataset:
+  - default dataset setting now points at the current corpus
+  - importer now reads `metadata.parquet` plus `content.parquet` through a local SQLite content cache keyed by document id
+  - added `--target-total` to `scripts/bootstrap_hf_full_corpus.py` so OCI imports can stop at a practical corpus size like 80k docs
+- Strengthened citation mapping for cross-reference quality:
+  - broader article/clause/point reference extraction around cited document numbers
+  - target article resolution now falls back through article-level matching
+  - citation rebuild now stores `target_section_id` when the cited provision can be resolved
+- Tightened the landing page further:
+  - reduced the hero to two core stats only
+  - moved legal categories directly under search
+  - reduced the latest-records block to two items
+  - reduced hero and showcase spacing again
+- Added section-level cross-reference badges directly inside the legal reader so cited hotspots surface at the article heading, not only in the outline rail.
 
 ### Verification
 

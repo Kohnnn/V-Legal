@@ -338,8 +338,13 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     related_documents = get_related_documents(connection, document)
     _, outline = prepare_document_markup(document["content"])
     section_citation_counts = get_section_citation_counts(connection, document_id)
+    section_citation_labels: dict[str, int] = {}
     for item in outline:
         item["citation_count"] = section_citation_counts.get(item["anchor"], 0)
+        if item["citation_count"]:
+            section_citation_labels[item["heading"]] = (
+                section_citation_labels.get(item["heading"], 0) + item["citation_count"]
+            )
     tracked_ids = get_tracked_document_ids(connection, [document_id])
     document_subjects = get_document_subjects(connection, document_id)
     provenance = build_provenance_profile(document)
@@ -347,7 +352,10 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     citation_graph = get_document_citation_graph(connection, document_id)
     citation_map = build_citation_map(citation_graph)
     document_display_html = build_document_display_html(
-        document["content"], citation_map
+        document["content"],
+        citation_map,
+        section_citation_counts,
+        section_citation_labels,
     )
     if document_display_html is None:
         document_html = render_markdown(document["content"])

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from datetime import datetime
 
 
 TOKEN_PATTERN = re.compile(r"[0-9A-Za-zÀ-ỹ]+", re.UNICODE)
@@ -60,14 +61,18 @@ def get_top_legal_types(connection: sqlite3.Connection, limit: int = 6) -> list[
 
 
 def get_recent_documents(connection: sqlite3.Connection, limit: int = 5) -> list[dict]:
+    max_reasonable_year = datetime.utcnow().year + 1
     rows = connection.execute(
         """
         SELECT id, title, document_number, legal_type, issuing_authority, issuance_date, excerpt
         FROM documents
-        ORDER BY year DESC, issuance_date DESC, id DESC
+        ORDER BY
+            CASE WHEN year BETWEEN 1800 AND ? THEN year END DESC,
+            CASE WHEN year BETWEEN 1800 AND ? THEN issuance_date END DESC,
+            id DESC
         LIMIT ?
         """,
-        (limit,),
+        (max_reasonable_year, max_reasonable_year, limit),
     ).fetchall()
     return [dict(row) for row in rows]
 
