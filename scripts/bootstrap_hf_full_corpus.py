@@ -27,6 +27,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--max-chunks", type=int, default=0)
     parser.add_argument(
+        "--target-total",
+        type=int,
+        default=0,
+        help="Stop once the local document count reaches this total.",
+    )
+    parser.add_argument(
         "--checkpoint-path",
         type=Path,
         default=settings.database_path.parent / "hf_import_checkpoint.json",
@@ -68,6 +74,10 @@ def import_chunk(connection, skip: int, chunk_size: int, batch_size: int) -> int
     return imported
 
 
+def get_document_count(connection) -> int:
+    return connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+
+
 def main() -> None:
     args = parse_args()
     connection = get_connection()
@@ -81,27 +91,43 @@ def main() -> None:
 
     current_skip = load_checkpoint(args.checkpoint_path)
     chunks_completed = 0
+    current_count = get_document_count(connection)
 
     print(f"Dataset: {get_settings().dataset_name}")
     print(f"Resuming from skip={current_skip}, chunk_size={args.chunk_size}")
+    if args.target_total:
+        print(f"Target document count: {args.target_total}")
+    print(f"Current local document count: {current_count}")
 
     while True:
         if args.max_chunks and chunks_completed >= args.max_chunks:
             break
+        if args.target_total and current_count >= args.target_total:
+            print("Reached requested target document count.")
+            break
+
+        chunk_size = args.chunk_size
+        if args.target_total:
+            chunk_size = min(args.chunk_size, args.target_total - current_count)
+            if chunk_size <= 0:
+                break
 
         print(f"Starting chunk {chunks_completed + 1} at skip={current_skip}...")
         imported = import_chunk(
             connection,
             skip=current_skip,
-            chunk_size=args.chunk_size,
+            chunk_size=chunk_size,
             batch_size=args.batch_size,
         )
         current_skip += imported
+        current_count += imported
         chunks_completed += 1
         save_checkpoint(args.checkpoint_path, current_skip)
-        print(f"Chunk complete. Imported {imported}. Checkpoint now {current_skip}.")
+        print(
+            f"Chunk complete. Imported {imported}. Checkpoint now {current_skip}. Total docs {current_count}."
+        )
 
-        if imported < args.chunk_size:
+        if imported < chunk_size:
             print("Reached end of dataset stream.")
             break
 

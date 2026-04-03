@@ -41,6 +41,9 @@ CITATION_ORDER = (
 )
 
 ARTICLE_REFERENCE_PATTERN = re.compile(r"\bdieu\s+\d+[a-z]?\b", re.IGNORECASE)
+ARTICLE_REFERENCE_CAPTURE_PATTERN = re.compile(r"\bdieu\s+(\d+[a-z]?)\b", re.IGNORECASE)
+CLAUSE_REFERENCE_PATTERN = re.compile(r"\bkhoan\s+(\d+[a-z]?)\b", re.IGNORECASE)
+POINT_REFERENCE_PATTERN = re.compile(r"\bdiem\s+([a-z])\b", re.IGNORECASE)
 
 
 def normalize_section_label(value: str | None) -> str:
@@ -55,6 +58,41 @@ def summarize_excerpt(value: str | None, max_length: int = 220) -> str:
     if len(collapsed) <= max_length:
         return collapsed
     return collapsed[: max_length - 3].rstrip() + "..."
+
+
+def extract_article_component(value: str | None) -> str | None:
+    normalized = normalize_ascii(value or "")
+    match = ARTICLE_REFERENCE_CAPTURE_PATTERN.search(normalized)
+    if not match:
+        return None
+    return f"Điều {match.group(1)}"
+
+
+def extract_reference_label(window_text: str) -> str | None:
+    normalized = normalize_ascii(window_text)
+    article_match = None
+    for match in ARTICLE_REFERENCE_CAPTURE_PATTERN.finditer(normalized):
+        article_match = match
+    if not article_match:
+        return None
+
+    clause_match = None
+    for match in CLAUSE_REFERENCE_PATTERN.finditer(normalized):
+        if match.start() <= article_match.end():
+            clause_match = match
+
+    point_match = None
+    for match in POINT_REFERENCE_PATTERN.finditer(normalized):
+        if match.start() <= article_match.end():
+            point_match = match
+
+    label_parts: list[str] = []
+    if point_match:
+        label_parts.append(f"Điểm {point_match.group(1).lower()}")
+    if clause_match:
+        label_parts.append(f"Khoản {clause_match.group(1)}")
+    label_parts.append(f"Điều {article_match.group(1)}")
+    return " ".join(label_parts)
 
 
 def extract_reference_quote(
@@ -133,7 +171,7 @@ def extract_section_mentions(section: dict, source_document: dict) -> list[dict]
         source_document.get("document_number") or ""
     )
     mentions: list[dict] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     mention_order = 1
 
     for match in DOC_NUMBER_PATTERN.finditer(normalized_text):
@@ -141,23 +179,25 @@ def extract_section_mentions(section: dict, source_document: dict) -> list[dict]
         if not referenced_number or referenced_number == source_number:
             continue
 
-        window_before = normalized_text[max(0, match.start() - 120) : match.start()]
+        window_before = normalized_text[max(0, match.start() - 180) : match.start()]
+        window_after = normalized_text[match.end() : match.end() + 140]
+        reference_window = f"{window_before} {window_after}".strip()
         link_type, cue_phrase = infer_link_type(window_before)
-        key = (referenced_number, link_type)
+        referenced_label = extract_reference_label(reference_window)
+        key = (referenced_number, link_type, referenced_label or "")
         if key in seen:
             continue
 
-        article_match = ARTICLE_REFERENCE_PATTERN.search(window_before)
         mentions.append(
             {
                 "mention_order": mention_order,
                 "raw_reference": match.group(0),
                 "referenced_number": referenced_number,
-                "referenced_label": article_match.group(0) if article_match else None,
+                "referenced_label": referenced_label,
                 "cue_phrase": cue_phrase,
                 "mention_type": "document",
                 "link_type": link_type,
-                "confidence": "high" if cue_phrase else "medium",
+                "confidence": "high" if cue_phrase or referenced_label else "medium",
             }
         )
         seen.add(key)
@@ -170,22 +210,82 @@ def get_citation_count(connection: sqlite3.Connection) -> int:
     return connection.execute("SELECT COUNT(*) FROM citation_links").fetchone()[0]
 
 
-def rebuild_citation_index(connection: sqlite3.Connection) -> int:
-    documents = [
-        dict(row)
-        for row in connection.execute(
-            """
-            SELECT id, document_number, title, content, issuing_authority, year
-            FROM documents
-            ORDER BY id ASC
-            """
-        ).fetchall()
-    ]
+def load_target_sections(
+    connection: sqlite3.Connection,
+    target_document_id: int,
+    section_cache: dict[int, list[dict]],
+) -> list[dict]:
+    if target_document_id in section_cache:
+        return section_cache[target_document_id]
 
+    rows = connection.execute(
+        """
+        SELECT id, label, anchor, text
+        FROM document_sections
+        WHERE document_id = ?
+        ORDER BY ordinal ASC
+        """,
+        (target_document_id,),
+    ).fetchall()
+    section_cache[target_document_id] = [
+        {
+            "id": row["id"],
+            "label": row["label"],
+            "anchor": row["anchor"],
+            "text": row["text"],
+            "normalized_label": normalize_section_label(row["label"]),
+            "article_component": normalize_section_label(
+                extract_article_component(row["label"]) or ""
+            ),
+        }
+        for row in rows
+    ]
+    return section_cache[target_document_id]
+
+
+def resolve_target_section_id(
+    connection: sqlite3.Connection,
+    *,
+    target_document_id: int,
+    referenced_label: str | None,
+    section_cache: dict[int, list[dict]],
+) -> int | None:
+    normalized_reference = normalize_section_label(referenced_label)
+    if not normalized_reference:
+        return None
+
+    sections = load_target_sections(connection, target_document_id, section_cache)
+    if not sections:
+        return None
+
+    for section in sections:
+        if section["normalized_label"] == normalized_reference:
+            return section["id"]
+
+    article_reference = normalize_section_label(
+        extract_article_component(referenced_label) or ""
+    )
+    if article_reference:
+        for section in sections:
+            if section["article_component"] == article_reference:
+                return section["id"]
+
+    for section in sections:
+        if (
+            normalized_reference in section["normalized_label"]
+            or section["normalized_label"] in normalized_reference
+        ):
+            return section["id"]
+
+    return None
+
+
+def rebuild_citation_index(connection: sqlite3.Connection) -> int:
     from .relations import build_document_number_index
 
     number_index = build_document_number_index(connection)
     link_count = 0
+    section_cache: dict[int, list[dict]] = {}
 
     with connection:
         connection.execute("DELETE FROM citation_links")
@@ -220,7 +320,15 @@ def rebuild_citation_index(connection: sqlite3.Connection) -> int:
         ) VALUES (?, ?, ?, ?, ?, ?)
         """
 
-        for document in documents:
+        document_cursor = connection.execute(
+            """
+            SELECT id, document_number, title, content, issuing_authority, year
+            FROM documents
+            ORDER BY id ASC
+            """
+        )
+        for row in document_cursor:
+            document = dict(row)
             section_records = extract_sections(document["content"])
             if section_records:
                 section_records[0] = {**section_records[0], "text": document["title"]}
@@ -237,13 +345,37 @@ def rebuild_citation_index(connection: sqlite3.Connection) -> int:
                         section["text"],
                     ),
                 )
-                section_id = cursor.lastrowid
+                _ = cursor.lastrowid
+
+        document_cursor = connection.execute(
+            """
+            SELECT id, document_number, title, issuing_authority, year
+            FROM documents
+            ORDER BY id ASC
+            """
+        )
+        for row in document_cursor:
+            document = dict(row)
+            section_rows = [
+                dict(section_row)
+                for section_row in connection.execute(
+                    """
+                    SELECT id, label, anchor, text
+                    FROM document_sections
+                    WHERE document_id = ?
+                    ORDER BY ordinal ASC
+                    """,
+                    (document["id"],),
+                ).fetchall()
+            ]
+
+            for section in section_rows:
                 for mention in extract_section_mentions(section, document):
                     mention_cursor = connection.execute(
                         mention_sql,
                         (
                             document["id"],
-                            section_id,
+                            section["id"],
                             mention["mention_order"],
                             mention["raw_reference"],
                             mention["referenced_number"],
@@ -258,12 +390,18 @@ def rebuild_citation_index(connection: sqlite3.Connection) -> int:
                     )
                     if not target_document:
                         continue
+                    target_section_id = resolve_target_section_id(
+                        connection,
+                        target_document_id=target_document["id"],
+                        referenced_label=mention["referenced_label"],
+                        section_cache=section_cache,
+                    )
                     connection.execute(
                         link_sql,
                         (
                             mention_cursor.lastrowid,
                             target_document["id"],
-                            None,
+                            target_section_id,
                             mention["link_type"],
                             1.0,
                             "document_number",
@@ -424,6 +562,10 @@ def resolve_target_section(
     if not normalized_reference:
         return None
 
+    article_reference = normalize_section_label(
+        extract_article_component(referenced_label) or ""
+    )
+
     rows = connection.execute(
         """
         SELECT id, label, anchor, text
@@ -444,6 +586,16 @@ def resolve_target_section(
                 "anchor": row["anchor"],
                 "excerpt": summarize_excerpt(row["text"]),
             }
+
+    if article_reference:
+        for row in rows:
+            if normalize_section_label(row["label"]) == article_reference:
+                return {
+                    "id": row["id"],
+                    "label": row["label"],
+                    "anchor": row["anchor"],
+                    "excerpt": summarize_excerpt(row["text"]),
+                }
 
     for row in rows:
         normalized_label = normalize_section_label(row["label"])

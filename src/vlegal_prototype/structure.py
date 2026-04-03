@@ -34,6 +34,9 @@ MOTTO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 STAR_RUN_PATTERN = re.compile(r"\*{3,}")
+DISPLAY_HEADING_BREAK_PATTERN = re.compile(
+    r"\s+(?=(PHẦN\s+[IVXLC0-9A-Za-z\-./]+|Phần\s+[IVXLC0-9A-Za-z\-./]+|CHƯƠNG\s+[IVXLC0-9A-Za-z\-./]+|Chương\s+[IVXLC0-9A-Za-z\-./]+|MỤC\s+[IVXLC0-9A-Za-z\-./]+|Mục\s+[IVXLC0-9A-Za-z\-./]+|Điều\s+\d+[A-Za-z0-9\-./]*[.:]?|RA\s+SẮC\s+LỆNH:|QUYẾT\s+ĐỊNH:|NGHỊ\s+QUYẾT:|THÔNG\s+TƯ:))"
+)
 
 PROMULGATOR_KEYWORDS = (
     "QUỐC HỘI",
@@ -189,11 +192,12 @@ def clean_display_line(value: str) -> str:
 
 
 def split_display_paragraphs(markdown_content: str) -> list[str]:
+    normalized_content = DISPLAY_HEADING_BREAK_PATTERN.sub(
+        "\n\n", markdown_content.replace("\r\n", "\n").replace("\r", "\n")
+    )
     paragraphs: list[str] = []
     current: list[str] = []
-    for raw_line in (
-        markdown_content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    ):
+    for raw_line in normalized_content.split("\n"):
         if raw_line.strip():
             current.append(raw_line.rstrip())
             continue
@@ -320,14 +324,38 @@ def render_body_paragraph(value: str, *, variant: str = "body") -> str:
     return f'<p class="{css_class}">{body_html}</p>'
 
 
+def render_section_badge(
+    anchor: str | None,
+    label: str,
+    section_citation_counts: dict[str, int],
+    section_citation_labels: dict[str, int],
+) -> str:
+    total = section_citation_counts.get(anchor or "", 0)
+    if total <= 0:
+        total = section_citation_labels.get(label, 0)
+    if total <= 0:
+        return ""
+    label = f"{total} cross-ref" if total == 1 else f"{total} cross-refs"
+    return (
+        '<div class="law-section-meta">'
+        f'<span class="law-ref-badge" data-section-anchor="{escape(anchor or "")}">{escape(label)}</span>'
+        "</div>"
+    )
+
+
 def build_document_display_html(
-    markdown_content: str, citation_map: dict[str, int] | None = None
+    markdown_content: str,
+    citation_map: dict[str, int] | None = None,
+    section_citation_counts: dict[str, int] | None = None,
+    section_citation_labels: dict[str, int] | None = None,
 ) -> str | None:
     paragraphs = split_display_paragraphs(markdown_content)
     if not paragraphs:
         return None
 
     citation_map = citation_map or {}
+    section_citation_counts = section_citation_counts or {}
+    section_citation_labels = section_citation_labels or {}
     anchor_lookup = build_section_anchor_lookup(markdown_content)
     header: dict[str, str | list[str] | None] = {
         "authority_left": None,
@@ -553,9 +581,16 @@ def build_document_display_html(
                 html_parts.append(
                     f'<a id="{article_anchor}" class="anchor-target"></a>'
                 )
+            section_badge = render_section_badge(
+                article_anchor,
+                article_label,
+                section_citation_counts,
+                section_citation_labels,
+            )
             html_parts.append(
                 '<header class="law-article__header">'
                 f'<h2 class="law-article__label">{escape(article_label)}</h2>'
+                f"{section_badge}"
                 "</header>"
             )
             lead_lines: list[str] = []
@@ -594,6 +629,12 @@ def build_document_display_html(
             )
             if anchor:
                 html_parts.append(f'<a id="{anchor}" class="anchor-target"></a>')
+            section_badge = render_section_badge(
+                anchor,
+                label,
+                section_citation_counts,
+                section_citation_labels,
+            )
             html_parts.append(
                 f'<p class="law-heading-block__label">{escape(label)}</p>'
             )
@@ -601,6 +642,8 @@ def build_document_display_html(
                 html_parts.append(
                     f'<h2 class="law-heading-block__title">{escape(subtitle)}</h2>'
                 )
+            if section_badge:
+                html_parts.append(section_badge)
             html_parts.append("</section>")
             body_index += 1
             continue
