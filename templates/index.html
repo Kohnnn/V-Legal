@@ -226,7 +226,16 @@
                                     <span class="archive-entry__sectors">{{ item.legal_sectors }}</span>
                                 {% endif %}
                                 <a href="/documents/{{ item.id }}" class="entry-link">Read</a>
-                                <button type="button" class="compare-select-btn" data-compare-id="{{ item.id }}" title="Add to compare">Compare</button>
+                                <button
+                                    type="button"
+                                    class="compare-select-btn"
+                                    data-compare-id="{{ item.id }}"
+                                    data-compare-title="{{ item.title }}"
+                                    data-compare-number="{{ item.document_number or item.legal_type or 'Văn bản pháp luật' }}"
+                                    title="Add to compare"
+                                >
+                                    Add to Compare
+                                </button>
                             </div>
                         </article>
                     {% endfor %}

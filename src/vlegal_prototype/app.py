@@ -26,10 +26,15 @@ from .appwrite_client import (
 from .citations import (
     get_citation_count,
     get_document_citation_graph,
+    get_inline_citation_preview,
     get_section_citation_counts,
     rebuild_citation_index,
 )
-from .compare import build_compare_view
+from .compare import (
+    build_compare_focus_preview,
+    build_compare_view,
+    pick_compare_target,
+)
 from .db import get_connection, get_stats, initialize_database, is_empty
 from .provenance import build_provenance_profile, enrich_documents_with_provenance
 from .relations import (
@@ -56,7 +61,11 @@ from .taxonomy import (
     get_taxonomy_subject_by_slug,
     get_taxonomy_subjects,
 )
-from .structure import inject_document_links, prepare_document_markup
+from .structure import (
+    build_document_display_html,
+    inject_document_links,
+    prepare_document_markup,
+)
 from .tracking import build_tracking_dashboard, get_same_subject_updates
 
 
@@ -337,8 +346,17 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
     relation_graph = get_document_relation_graph(connection, document_id)
     citation_graph = get_document_citation_graph(connection, document_id)
     citation_map = build_citation_map(citation_graph)
-    document_html = render_markdown(document["content"])
-    document_html_str = inject_document_links(str(document_html), citation_map)
+    document_display_html = build_document_display_html(
+        document["content"], citation_map
+    )
+    if document_display_html is None:
+        document_html = render_markdown(document["content"])
+        document_display_html = inject_document_links(str(document_html), citation_map)
+    compare_target = pick_compare_target(
+        relation_graph=relation_graph,
+        citation_graph=citation_graph,
+        related_documents=related_documents,
+    )
     aw_tracked = aw_list_tracked(user_id)
     aw_tracked_ids = {t["document_id"] for t in aw_tracked}
     return templates.TemplateResponse(
@@ -347,13 +365,14 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
         context={
             "request": request,
             "document": document,
-            "document_html": Markup(document_html_str),
+            "document_display_html": Markup(document_display_html),
             "document_outline": outline,
             "document_subjects": document_subjects,
             "provenance": provenance,
             "citation_graph": citation_graph,
             "relation_graph": relation_graph,
             "related_documents": related_documents,
+            "compare_target": compare_target,
             "is_tracked": document_id in aw_tracked_ids,
         },
     )
@@ -552,6 +571,57 @@ def api_citations(document_id: int, connection=Depends(get_db)):
     if not get_document(connection, document_id):
         raise HTTPException(status_code=404, detail="Document not found")
     return JSONResponse(get_document_citation_graph(connection, document_id))
+
+
+@app.get("/api/citation-preview/{source_document_id}/{target_document_id}")
+def api_citation_preview(
+    source_document_id: int,
+    target_document_id: int,
+    source_anchor: str | None = None,
+    raw_reference: str | None = None,
+    connection=Depends(get_db),
+):
+    source_document = get_document(connection, source_document_id)
+    target_document = get_document(connection, target_document_id)
+    if not source_document or not target_document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    preview = get_inline_citation_preview(
+        connection,
+        source_document_id=source_document_id,
+        target_document_id=target_document_id,
+        source_anchor=source_anchor,
+        raw_reference=raw_reference,
+    )
+    if not preview:
+        raise HTTPException(status_code=404, detail="Citation preview not found")
+
+    preview["target_document"]["provenance"] = build_provenance_profile(target_document)
+    preview["target_document"]["compare_path"] = (
+        f"/compare/{source_document_id}/{target_document_id}"
+        if source_document_id != target_document_id
+        else None
+    )
+    preview["target_document"]["reader_path"] = f"/documents/{target_document_id}"
+
+    target_relation_graph = get_document_relation_graph(connection, target_document_id)
+    target_citation_graph = get_document_citation_graph(connection, target_document_id)
+    target_related_documents = get_related_documents(connection, target_document)
+    compare_target = pick_compare_target(
+        relation_graph=target_relation_graph,
+        citation_graph=target_citation_graph,
+        related_documents=target_related_documents,
+    )
+    if compare_target:
+        compare_document = get_document(connection, compare_target["id"])
+        if compare_document:
+            preview["target_document"]["compare_preview"] = build_compare_focus_preview(
+                connection,
+                left_document=target_document,
+                right_document=compare_document,
+                focus_left_anchor=(preview.get("target_section") or {}).get("anchor"),
+            )
+    return JSONResponse(preview)
 
 
 @app.get("/api/compare/{left_document_id}/{right_document_id}")

@@ -1,5 +1,49 @@
 # Development Journal
 
+## Session: Legal Reader Redesign Foundation
+
+**Date:** 2026-04-02
+**Goal:** Move the reader closer to an official Vietnamese legal-document experience, clean up compare flow, and record the phased implementation plan in the repo.
+
+### What Shipped
+
+- Added `docs/LEGAL_READER_IMPLEMENTATION_PLAN.md` to document the UX findings, the redesign rationale, and the phased delivery plan.
+- Added a display-only legal document parser in `src/vlegal_prototype/structure.py`.
+- The reader now detects and renders:
+  - issuing authority block
+  - national motto block
+  - document number and date line
+  - legal type and centered title block
+  - preamble clauses such as `Căn cứ ...`
+  - enactment lines such as `QUYẾT ĐỊNH:`
+  - structured article and clause display for `Điều`, khoản, and điểm
+- Kept the old markdown path as a safe fallback when the richer parser cannot confidently structure the content.
+- Rebuilt `templates/document.html` so the legal document becomes the center of the page and research tools move to the side rail.
+- Updated reader styling in `static/styles.css` toward a more formal legal-page layout.
+- Fixed compare flow in `static/app.js` and `templates/index.html`:
+  - exactly two selected documents
+  - visible left/right compare slots
+  - named selections instead of raw document IDs
+- Removed self-compare behavior from the document reader and replaced it with a best-related compare target when available.
+- Added mention-level inline citation preview support:
+  - new `GET /api/citation-preview/{source_document_id}/{target_document_id}` endpoint
+  - preview payload includes reference context, target document summary, inferred target section when available, lifecycle signals, and incoming mentions from other documents
+  - the reader now opens a hover card on desktop and a tap sheet on mobile for inline legal references
+- Extended citation previews with focused compare evidence from the strongest lifecycle-linked document when meaningful.
+- Rebuilt and restarted the OCI backend container with the new reader and citation-preview logic.
+- Fixed the public frontend proxy path by:
+  - pointing Netlify redirects at the public Caddy-backed V-Legal host instead of the closed `:8000` port
+  - adding `static/_redirects` so manual Netlify deploys reliably preserve proxy rules
+  - redeploying `vlegal-frontend` and verifying public document and API routes
+
+### Verification
+
+- `uv run python -m compileall src scripts`
+- parsed `templates/document.html` and `templates/index.html` successfully with Jinja
+- rendered a sample SQLite document through the new display parser and verified that the authority, motto, number/date line, legal type, title, preamble, and article structure are emitted as structured HTML
+
+---
+
 ## Session: Full-Corpus OCI Deployment + Legal Portal UI
 
 **Date:** 2026-03-28 (continued into 2026-04-01)

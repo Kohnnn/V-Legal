@@ -5,174 +5,250 @@
 {% block content %}
 <div class="doc-page">
     <div class="doc-shell">
-
-        <header class="doc-header">
-            <div class="doc-header__meta">
+        <section class="doc-chrome">
+            <div class="doc-chrome__path">
+                <a href="/">Lưu trữ</a>
+                <span>/</span>
+                <span>{{ document.document_number or document.legal_type or "Văn bản" }}</span>
+            </div>
+            <div class="doc-chrome__meta">
                 {% if document.legal_type %}<span class="doc-meta-tag">{{ document.legal_type }}</span>{% endif %}
                 {% if document.document_number %}<span class="doc-meta-tag">{{ document.document_number }}</span>{% endif %}
                 {% if document.issuance_date %}<span class="doc-meta-tag">{{ document.issuance_date }}</span>{% endif %}
+                {% if document.issuing_authority %}<span class="doc-meta-tag">{{ document.issuing_authority }}</span>{% endif %}
             </div>
-            <div class="doc-header__title">
-                <h1>{{ document.title }}</h1>
-                {% if document.issuing_authority %}<p class="doc-header__auth">{{ document.issuing_authority }}</p>{% endif %}
+            <div class="doc-chrome__actions">
+                <button
+                    class="doc-action-btn {% if is_tracked %}doc-action-btn--active{% endif %}"
+                    type="button"
+                    data-track-button
+                    data-document-id="{{ document.id }}"
+                    data-tracked="{{ 'true' if is_tracked else 'false' }}"
+                >
+                    {% if is_tracked %}Đã theo dõi{% else %}Theo dõi văn bản{% endif %}
+                </button>
+
+                {% if compare_target %}
+                    <a class="doc-action-btn doc-action-btn--link" href="/compare/{{ document.id }}/{{ compare_target.id }}">
+                        So sánh văn bản liên quan
+                    </a>
+                {% else %}
+                    <button
+                        type="button"
+                        class="doc-action-btn"
+                        data-compare-id="{{ document.id }}"
+                        data-compare-title="{{ document.title }}"
+                        data-compare-number="{{ document.document_number or document.legal_type or 'Văn bản pháp luật' }}"
+                    >
+                        Thêm vào so sánh
+                    </button>
+                {% endif %}
+
+                {% if citation_graph.outgoing_total or citation_graph.incoming_total %}
+                    <a class="doc-action-btn doc-action-btn--link" href="#doc-refs">Xem văn bản liên quan</a>
+                {% endif %}
+
+                {% if provenance.routes %}
+                    <a class="doc-action-btn doc-action-btn--link" href="{{ provenance.routes[0].url }}" target="_blank" rel="noreferrer">
+                        Đối chiếu nguồn chính thức
+                    </a>
+                {% endif %}
             </div>
-        </header>
+        </section>
 
         <nav class="doc-tabs" aria-label="Document sections">
             <a class="doc-tab doc-tab--active" href="#doc-body">Nội dung</a>
-            <a class="doc-tab" href="#doc-toc">Mục lục</a>
-            <a class="doc-tab" href="#doc-refs">Liên quan nội dung</a>
-            <a class="doc-tab" href="#doc-validity">Liên quan hiệu lực</a>
+            {% if document_outline %}<a class="doc-tab" href="#doc-toc">Mục lục</a>{% endif %}
+            {% if citation_graph.outgoing_total or citation_graph.incoming_total %}<a class="doc-tab" href="#doc-refs">Liên quan nội dung</a>{% endif %}
+            {% if relation_graph.total %}<a class="doc-tab" href="#doc-validity">Hiệu lực & cập nhật</a>{% endif %}
         </nav>
 
         <div class="doc-body-wrap">
-            <div class="doc-col-main">
-                <p class="doc-toc-toggle"><a href="#doc-toc">▼ MỤC LỤC VĂN BẢN</a></p>
-
-                <div id="doc-toc" class="doc-toc-box">
-                    {% if document_outline %}
-                    <nav aria-label="Document outline">
-                        {% for item in document_outline %}
-                        <a class="doc-toc-item" href="#{{ item.anchor }}">
-                            <span>{{ item.heading }}</span>
-                            {% if item.citation_count %}<small>{{ item.citation_count }} trích dẫn</small>{% endif %}
-                        </a>
-                        {% endfor %}
-                    </nav>
-                    {% else %}
-                    <p class="muted">Không có mục lục.</p>
-                    {% endif %}
-                </div>
-
-                <article class="doc-text" id="doc-body">
-                    {{ document_html }}
+            <main class="doc-col-main">
+                <article class="doc-text doc-text--legal" id="doc-body" data-citation-preview-root data-document-id="{{ document.id }}">
+                    {{ document_display_html }}
                 </article>
-
-                {% if document_outline %}
-                <div class="doc-toc-box doc-toc-box--bottom">
-                    <p class="doc-toc-toggle"><a href="#doc-toc">▲ MỤC LỤC VĂN BẢN</a></p>
-                    <nav aria-label="Document outline">
-                        {% for item in document_outline %}
-                        <a class="doc-toc-item" href="#{{ item.anchor }}">
-                            <span>{{ item.heading }}</span>
-                        </a>
-                        {% endfor %}
-                    </nav>
-                </div>
-                {% endif %}
-            </div>
+            </main>
 
             <aside class="doc-col-side">
-                <div class="doc-action-strip">
-                    <button
-                        class="doc-action-btn {% if is_tracked %}doc-action-btn--active{% endif %}"
-                        data-track-button
-                        data-document-id="{{ document.id }}"
-                        data-tracked="{{ 'true' if is_tracked else 'false' }}"
-                        title="Lưu trữ"
-                    >
-                        <span class="doc-action-icon">📁</span>
-                        <span>{% if is_tracked %}Đã lưu{% else %}Lưu trữ{% endif %}</span>
-                    </button>
+                {% if document_outline %}
+                    <section class="doc-sidebar-card" id="doc-toc">
+                        <div class="doc-sidebar-card__heading">
+                            <p class="section-label">Mục lục</p>
+                            <h2>Điểm neo văn bản</h2>
+                        </div>
+                        <nav class="doc-outline-list" aria-label="Document outline">
+                            {% for item in document_outline %}
+                                <a class="doc-outline-item" href="#{{ item.anchor }}">
+                                    <span>{{ item.heading }}</span>
+                                    {% if item.citation_count %}<small>{{ item.citation_count }} dẫn chiếu</small>{% endif %}
+                                </a>
+                            {% endfor %}
+                        </nav>
+                    </section>
+                {% endif %}
 
-                    {% if relation_graph.total or citation_graph.incoming_total %}
-                    <button class="doc-action-btn" onclick="document.getElementById('doc-refs').scrollIntoView({behavior:'smooth'})" title="Liên quan">
-                        <span class="doc-action-icon">🔗</span>
-                        <span>Liên quan</span>
-                    </button>
-                    {% endif %}
-
-                    <a class="doc-action-btn" href="/compare/{{ document.id }}/{{ document.id }}" title="So sánh">
-                        <span class="doc-action-icon">⇄</span>
-                        <span>So sánh</span>
-                    </a>
-
-                    {% if provenance.routes %}
-                    <a class="doc-action-btn" href="{{ provenance.routes[0].url }}" target="_blank" rel="noreferrer" title="Nguồn gốc">
-                        <span class="doc-action-icon">🌐</span>
-                        <span>Nguồn gốc</span>
-                    </a>
-                    {% endif %}
-                </div>
+                {% if compare_target %}
+                    <section class="doc-sidebar-card">
+                        <div class="doc-sidebar-card__heading">
+                            <p class="section-label">Đối chiếu nhanh</p>
+                            <h2>Văn bản nên so sánh trước</h2>
+                        </div>
+                        <article class="doc-compare-preview">
+                            <strong>{{ compare_target.title }}</strong>
+                            <span>{{ compare_target.document_number or compare_target.legal_type or "Văn bản pháp luật" }}</span>
+                            {% if compare_target.issuance_date %}<span>{{ compare_target.issuance_date }}</span>{% endif %}
+                            <a class="entry-link entry-link--full" href="/compare/{{ document.id }}/{{ compare_target.id }}">Mở chế độ so sánh</a>
+                        </article>
+                    </section>
+                {% endif %}
 
                 {% if document_subjects %}
-                <div class="doc-side-card">
-                    <h3 class="doc-side-card__head">Chủ đề pháp diễn</h3>
-                    <div class="doc-taxonomy">
-                        {% for item in document_subjects %}
-                        <a class="doc-tax-item" href="/?topic={{ item.slug }}">{{ item.name }}</a>
-                        {% endfor %}
-                    </div>
-                </div>
+                    <section class="doc-sidebar-card">
+                        <div class="doc-sidebar-card__heading">
+                            <p class="section-label">Chủ đề pháp điển</p>
+                            <h2>Phạm vi liên quan</h2>
+                        </div>
+                        <div class="doc-taxonomy">
+                            {% for item in document_subjects %}
+                                <a class="doc-tax-item" href="/?topic={{ item.slug }}">{{ item.name }}</a>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endif %}
+
+                {% if related_documents %}
+                    <section class="doc-sidebar-card">
+                        <div class="doc-sidebar-card__heading">
+                            <p class="section-label">Liên hệ gần</p>
+                            <h2>Văn bản gần nhất</h2>
+                        </div>
+                        <div class="doc-related-mini-list">
+                            {% for item in related_documents %}
+                                <a class="doc-related-mini-item" href="/documents/{{ item.id }}">
+                                    <strong>{{ item.title }}</strong>
+                                    <span>{{ item.document_number or item.legal_type or item.issuance_date }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </section>
                 {% endif %}
             </aside>
         </div>
 
         {% if citation_graph.outgoing_total or citation_graph.incoming_total %}
-        <section class="doc-ref-section" id="doc-refs">
-            <h2 class="doc-ref-section__title">Văn bản liên quan</h2>
+            <section class="doc-ref-section" id="doc-refs">
+                <h2 class="doc-ref-section__title">Văn bản liên quan theo dẫn chiếu</h2>
 
-            {% if citation_graph.outgoing_total %}
-            <div class="doc-ref-group">
-                <h3>Văn bản được trích dẫn</h3>
-                <div class="doc-ref-list">
+                {% if citation_graph.outgoing_total %}
                     {% for group in citation_graph.outgoing_groups %}
-                        {% for item in group["items"][:10] %}
-                        <article class="doc-ref-item">
-                            <a href="/documents/{{ item.id }}">
-                                <strong>{{ item.title }}</strong>
-                                <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
-                            </a>
-                        </article>
-                        {% endfor %}
+                        <div class="doc-ref-group">
+                            <h3>{{ group.label }}</h3>
+                            <div class="doc-ref-list">
+                                {% for item in group["items"][:10] %}
+                                    <article class="doc-ref-item">
+                                        <a href="/documents/{{ item.id }}">
+                                            <strong>{{ item.title }}</strong>
+                                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                                            <span>{{ item.count }} dẫn chiếu từ văn bản này</span>
+                                        </a>
+                                        {% if item.sections %}
+                                            <div class="doc-ref-item__anchors">
+                                                {% for section in item.sections[:3] %}
+                                                    <a href="#{{ section.anchor }}">{{ section.label }}</a>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="doc-ref-item__actions">
+                                            <a href="/compare/{{ document.id }}/{{ item.id }}">So sánh</a>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        </div>
                     {% endfor %}
-                </div>
-            </div>
-            {% endif %}
+                {% endif %}
 
-            {% if citation_graph.incoming_total %}
-            <div class="doc-ref-group">
-                <h3>Văn bản tham chiếu đến</h3>
-                <div class="doc-ref-list">
+                {% if citation_graph.incoming_total %}
                     {% for group in citation_graph.incoming_groups %}
-                        {% for item in group["items"][:10] %}
-                        <article class="doc-ref-item">
-                            <a href="/documents/{{ item.id }}">
-                                <strong>{{ item.title }}</strong>
-                                <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
-                            </a>
-                        </article>
-                        {% endfor %}
+                        <div class="doc-ref-group">
+                            <h3>{{ group.label }}</h3>
+                            <div class="doc-ref-list">
+                                {% for item in group["items"][:10] %}
+                                    <article class="doc-ref-item">
+                                        <a href="/documents/{{ item.id }}">
+                                            <strong>{{ item.title }}</strong>
+                                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                                            <span>{{ item.count }} lượt nhắc đến văn bản này</span>
+                                        </a>
+                                        {% if item.sections %}
+                                            <div class="doc-ref-item__anchors">
+                                                {% for section in item.sections[:3] %}
+                                                    <a href="/documents/{{ item.id }}#{{ section.anchor }}">{{ section.label }}</a>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="doc-ref-item__actions">
+                                            <a href="/compare/{{ document.id }}/{{ item.id }}">So sánh</a>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        </div>
                     {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-        </section>
+                {% endif %}
+            </section>
         {% endif %}
 
         {% if relation_graph.total %}
-        <section class="doc-ref-section" id="doc-validity">
-            <h2 class="doc-ref-section__title">Quan hệ pháp lý</h2>
-            <div class="doc-ref-list">
-                {% for group in relation_graph.outgoing %}
-                    {% for item in group["items"][:8] %}
-                    <article class="doc-ref-item">
-                        <a href="/documents/{{ item.id }}">
-                            <strong>{{ item.title }}</strong>
-                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
-                        </a>
-                    </article>
+            <section class="doc-ref-section" id="doc-validity">
+                <h2 class="doc-ref-section__title">Hiệu lực, cập nhật và thay thế</h2>
+
+                {% if relation_graph.incoming %}
+                    {% for group in relation_graph.incoming %}
+                        <div class="doc-ref-group">
+                            <h3>{{ group.label }}</h3>
+                            <div class="doc-ref-list">
+                                {% for item in group["items"][:8] %}
+                                    <article class="doc-ref-item">
+                                        <a href="/documents/{{ item.id }}">
+                                            <strong>{{ item.title }}</strong>
+                                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                                            {% if item.evidence_text %}<span>{{ item.evidence_text }}</span>{% endif %}
+                                        </a>
+                                        <div class="doc-ref-item__actions">
+                                            <a href="/compare/{{ document.id }}/{{ item.id }}">So sánh</a>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        </div>
                     {% endfor %}
-                {% endfor %}
-            </div>
-        </section>
+                {% endif %}
+
+                {% if relation_graph.outgoing %}
+                    {% for group in relation_graph.outgoing %}
+                        <div class="doc-ref-group">
+                            <h3>{{ group.label }}</h3>
+                            <div class="doc-ref-list">
+                                {% for item in group["items"][:8] %}
+                                    <article class="doc-ref-item">
+                                        <a href="/documents/{{ item.id }}">
+                                            <strong>{{ item.title }}</strong>
+                                            <span>{{ item.document_number or item.legal_type or "Văn bản pháp luật" }}</span>
+                                            {% if item.evidence_text %}<span>{{ item.evidence_text }}</span>{% endif %}
+                                        </a>
+                                        <div class="doc-ref-item__actions">
+                                            <a href="/compare/{{ document.id }}/{{ item.id }}">So sánh</a>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </section>
         {% endif %}
-
-        <div class="doc-footer-actions">
-            <a class="doc-footer-btn" href="/">← Quay lại lưu trữ</a>
-            <a class="doc-footer-btn" href="/?q=">Tìm kiếm mới</a>
-        </div>
-
     </div>
 </div>
 {% endblock %}
