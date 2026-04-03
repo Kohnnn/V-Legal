@@ -629,3 +629,151 @@ def build_compare_view(
         "alignment": alignment,
         "lifecycle_compare": lifecycle_compare,
     }
+
+
+def pick_compare_target(
+    relation_graph: dict, citation_graph: dict, related_documents: list[dict]
+) -> dict | None:
+    relation_priorities = (
+        (relation_graph.get("incoming", []), {"replaces", "amends"}, "newer-change"),
+        (relation_graph.get("outgoing", []), {"replaces", "amends"}, "older-change"),
+    )
+    for groups, relation_types, reason in relation_priorities:
+        for group in groups:
+            if group.get("key", "").replace("_incoming", "") not in relation_types:
+                continue
+            if group.get("items"):
+                item = group["items"][0]
+                return {
+                    "id": item["id"],
+                    "title": item["title"],
+                    "document_number": item.get("document_number"),
+                    "legal_type": item.get("legal_type"),
+                    "issuance_date": item.get("issuance_date"),
+                    "reason": reason,
+                }
+
+    citation_priorities = (
+        (
+            citation_graph.get("incoming_groups", []),
+            {"replaces_incoming", "amends_incoming"},
+            "newer-citation",
+        ),
+        (
+            citation_graph.get("outgoing_groups", []),
+            {"replaces", "amends"},
+            "outgoing-citation",
+        ),
+    )
+    for groups, citation_keys, reason in citation_priorities:
+        for group in groups:
+            if group.get("key") not in citation_keys:
+                continue
+            if group.get("items"):
+                item = group["items"][0]
+                return {
+                    "id": item["id"],
+                    "title": item["title"],
+                    "document_number": item.get("document_number"),
+                    "legal_type": item.get("legal_type"),
+                    "issuance_date": item.get("issuance_date"),
+                    "reason": reason,
+                }
+
+    if related_documents:
+        item = related_documents[0]
+        return {
+            "id": item["id"],
+            "title": item["title"],
+            "document_number": item.get("document_number"),
+            "legal_type": item.get("legal_type"),
+            "issuance_date": item.get("issuance_date"),
+            "reason": "related-document",
+        }
+    return None
+
+
+def _pick_focus_alignment_row(
+    compare_view: dict,
+    *,
+    focus_left_anchor: str | None = None,
+    focus_right_anchor: str | None = None,
+) -> dict | None:
+    rows = compare_view["alignment"]["rows"]
+
+    if focus_left_anchor:
+        for row in rows:
+            if row.get("left") and row["left"].get("anchor") == focus_left_anchor:
+                return row
+
+    if focus_right_anchor:
+        for row in rows:
+            if row.get("right") and row["right"].get("anchor") == focus_right_anchor:
+                return row
+
+    for row in rows:
+        if row["kind"] == "matched" and row["change"]["change_label"] != "unchanged":
+            return row
+
+    for row in rows:
+        if row["kind"] == "matched":
+            return row
+
+    return rows[0] if rows else None
+
+
+def build_compare_focus_preview(
+    connection: sqlite3.Connection,
+    left_document: dict,
+    right_document: dict,
+    *,
+    focus_left_anchor: str | None = None,
+    focus_right_anchor: str | None = None,
+) -> dict | None:
+    compare_view = build_compare_view(connection, left_document, right_document)
+    row = _pick_focus_alignment_row(
+        compare_view,
+        focus_left_anchor=focus_left_anchor,
+        focus_right_anchor=focus_right_anchor,
+    )
+    if not row:
+        return None
+
+    change = row.get("change") or {}
+    details = change.get("details") or {}
+    changed_pairs = details.get("changed") or []
+    return {
+        "compare_path": f"/compare/{left_document['id']}/{right_document['id']}",
+        "comparison_document": {
+            "id": right_document["id"],
+            "title": right_document["title"],
+            "document_number": right_document.get("document_number"),
+            "legal_type": right_document.get("legal_type"),
+            "issuance_date": right_document.get("issuance_date"),
+        },
+        "focus": {
+            "left": {
+                "label": row.get("left", {}).get("label"),
+                "anchor": row.get("left", {}).get("anchor"),
+                "summary": row.get("left", {}).get("summary"),
+            }
+            if row.get("left")
+            else None,
+            "right": {
+                "label": row.get("right", {}).get("label"),
+                "anchor": row.get("right", {}).get("anchor"),
+                "summary": row.get("right", {}).get("summary"),
+            }
+            if row.get("right")
+            else None,
+        },
+        "change": {
+            "label": change.get("change_label"),
+            "summary": change.get("summary"),
+            "score": row.get("score"),
+            "added": details.get("added", [])[:2],
+            "removed": details.get("removed", [])[:2],
+            "changed": changed_pairs[:2],
+            "instruction_clauses": details.get("instruction_clauses", [])[:2],
+        },
+    }

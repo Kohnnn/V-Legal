@@ -2243,3 +2243,745 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Reader Redesign: Scholarly Legal Document ===== */
+
+.anchor-target {
+  display: block;
+  position: relative;
+  top: -104px;
+  visibility: hidden;
+}
+
+.doc-page {
+  margin-top: 24px;
+}
+
+.doc-shell {
+  max-width: 1460px;
+  margin: 0 auto;
+  padding: 0 18px 56px;
+}
+
+.doc-chrome,
+.doc-sidebar-card,
+.doc-ref-section {
+  background: rgba(246, 244, 232, 0.88);
+  box-shadow: none;
+  border: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.doc-chrome {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.doc-chrome__path,
+.doc-chrome__meta,
+.doc-chrome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.doc-chrome__path {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.doc-chrome__path a:hover {
+  color: var(--navy);
+}
+
+.doc-chrome__actions {
+  gap: 12px;
+}
+
+.doc-action-btn,
+.doc-action-btn--link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(27, 28, 21, 0.12);
+  background: rgba(252, 250, 238, 0.86);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.doc-action-btn:hover,
+.doc-action-btn--link:hover {
+  color: var(--navy);
+  background: rgba(7, 109, 165, 0.08);
+  border-color: rgba(7, 109, 165, 0.18);
+}
+
+.doc-action-btn--active {
+  color: var(--gold);
+  background: var(--gold-soft);
+  border-color: rgba(139, 80, 0, 0.24);
+}
+
+.doc-action-btn.is-selected {
+  color: #ffffff;
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.doc-tabs {
+  position: sticky;
+  top: 78px;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 14px;
+  background: rgba(240, 238, 226, 0.96);
+  border: 1px solid rgba(27, 28, 21, 0.1);
+  backdrop-filter: blur(16px);
+}
+
+.doc-tab {
+  padding: 0.85rem 1rem;
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-right: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.doc-tab:hover,
+.doc-tab--active {
+  color: #ffffff;
+  background: var(--navy);
+}
+
+.doc-body-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 860px) minmax(260px, 320px);
+  gap: 26px;
+  justify-content: center;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.doc-col-main {
+  min-width: 0;
+}
+
+.doc-col-side {
+  position: sticky;
+  top: 150px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.doc-sidebar-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.doc-sidebar-card__heading {
+  display: grid;
+  gap: 6px;
+}
+
+.doc-sidebar-card__heading h2 {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1.05rem;
+}
+
+.doc-outline-list,
+.doc-related-mini-list,
+.doc-taxonomy {
+  display: grid;
+  gap: 10px;
+}
+
+.doc-outline-item,
+.doc-related-mini-item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.doc-outline-item span,
+.doc-related-mini-item strong,
+.doc-compare-preview strong {
+  font-family: "Noto Serif", serif;
+  color: var(--ink);
+}
+
+.doc-outline-item small,
+.doc-related-mini-item span,
+.doc-compare-preview span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.doc-outline-item:hover span,
+.doc-related-mini-item:hover strong {
+  color: var(--navy);
+}
+
+.doc-compare-preview {
+  display: grid;
+  gap: 6px;
+}
+
+.doc-tax-item {
+  padding: 8px 10px;
+  background: rgba(27, 28, 21, 0.04);
+  font-family: "Noto Serif", serif;
+  font-size: 0.88rem;
+}
+
+.doc-tax-item:hover {
+  color: var(--navy);
+  background: rgba(7, 109, 165, 0.08);
+}
+
+.doc-text--legal {
+  color: var(--ink);
+}
+
+.law-document {
+  background: #fffdfa;
+  border: 1px solid rgba(27, 28, 21, 0.08);
+  box-shadow: 0 18px 44px rgba(27, 28, 21, 0.06);
+  padding: 44px 56px;
+}
+
+.law-document__masthead,
+.law-document__register-line {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.law-document__masthead {
+  align-items: start;
+}
+
+.law-document__authority,
+.law-document__motto,
+.law-document__register,
+.law-document__date {
+  text-align: center;
+}
+
+.law-document__authority p,
+.law-document__motto p,
+.law-document__register-line p {
+  margin: 0;
+}
+
+.law-document__authority p,
+.law-document__motto-title,
+.law-document__register,
+.law-document__date,
+.law-document__promulgator {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.law-document__motto {
+  display: grid;
+  gap: 6px;
+}
+
+.law-document__motto-subtitle {
+  font-family: "Noto Serif", serif;
+  font-size: 0.92rem;
+}
+
+.law-document__register-line {
+  margin-top: 16px;
+  padding-bottom: 24px;
+}
+
+.law-document__title-block {
+  display: grid;
+  gap: 10px;
+  margin: 8px auto 0;
+  text-align: center;
+}
+
+.law-document__legal-type {
+  margin: 0;
+  font-family: "Work Sans", sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.law-document__title {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  line-height: 1.22;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.law-document__promulgator {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+.law-document__preamble {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.law-document__preamble-clause,
+.law-document__preamble-copy,
+.law-document__intro-paragraph,
+.law-paragraph,
+.law-article__lead,
+.law-clause,
+.law-point,
+.law-dash {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1.03rem;
+  line-height: 1.8;
+}
+
+.law-document__preamble-clause,
+.law-document__preamble-copy {
+  font-style: italic;
+}
+
+.law-document__enactment {
+  margin: 6px 0 0;
+  text-align: center;
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.law-document__body {
+  display: grid;
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.law-heading-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.law-heading-block__label {
+  margin: 0;
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.law-heading-block__title {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1.45rem;
+  line-height: 1.28;
+  text-transform: uppercase;
+}
+
+.law-article {
+  display: grid;
+  gap: 12px;
+}
+
+.law-article__header {
+  margin-top: 10px;
+}
+
+.law-article__label {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1.18rem;
+  line-height: 1.4;
+}
+
+.law-article__lead {
+  font-weight: 500;
+}
+
+.law-clause,
+.law-point,
+.law-dash {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.law-clause__label,
+.law-point__label,
+.law-dash__label {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.doc-ref-section {
+  margin-top: 26px;
+  padding: 20px 22px;
+}
+
+.doc-ref-section__title {
+  margin: 0 0 16px;
+  font-family: "Noto Serif", serif;
+  font-size: 1.22rem;
+}
+
+.doc-ref-group + .doc-ref-group {
+  margin-top: 18px;
+}
+
+.doc-ref-group h3 {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.doc-ref-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.doc-ref-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fffdfa;
+  border: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.doc-ref-item > a {
+  display: grid;
+  gap: 4px;
+}
+
+.doc-ref-item strong {
+  font-family: "Noto Serif", serif;
+  font-size: 0.96rem;
+  font-weight: 500;
+}
+
+.doc-ref-item span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.doc-ref-item__anchors,
+.doc-ref-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.doc-ref-item__anchors a,
+.doc-ref-item__actions a {
+  color: var(--navy);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.doc-ref-item__anchors a:hover,
+.doc-ref-item__actions a:hover {
+  color: var(--gold);
+}
+
+.doc-text .doc-ref-link,
+.law-document .doc-ref-link {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.12em;
+}
+
+.doc-text .doc-ref-link:hover,
+.law-document .doc-ref-link:hover {
+  color: var(--navy);
+}
+
+.compare-bar__slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  flex: 1;
+}
+
+.compare-bar__slot {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.compare-bar__slot small,
+.compare-bar__slot span {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compare-bar__slot strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-bar__slot--empty {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 1220px) {
+  .doc-body-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .doc-col-side {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .law-document {
+    padding: 30px 22px;
+  }
+
+  .law-document__masthead,
+  .law-document__register-line,
+  .compare-bar__slots {
+    grid-template-columns: 1fr;
+  }
+
+  .doc-col-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .doc-shell {
+    padding: 0 12px 44px;
+  }
+
+  .doc-tabs {
+    top: 64px;
+  }
+
+  .doc-tab {
+    flex: 1 1 45%;
+    text-align: center;
+  }
+
+  .doc-ref-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.citation-preview {
+  position: absolute;
+  z-index: 120;
+  width: min(380px, calc(100vw - 24px));
+}
+
+.citation-preview__surface {
+  background: #fffdfa;
+  border: 1px solid rgba(27, 28, 21, 0.1);
+  box-shadow: 0 20px 50px rgba(27, 28, 21, 0.18);
+}
+
+.citation-preview__body,
+.citation-preview__loading {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.citation-preview__close {
+  justify-self: end;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.citation-preview__eyebrow {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.citation-preview h3 {
+  margin: 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.citation-preview__meta,
+.citation-preview__excerpt,
+.citation-preview__block p,
+.citation-preview__mention-list small,
+.citation-preview__signal small {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.citation-preview__block {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.citation-preview__block strong {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.citation-preview__signals,
+.citation-preview__signal-list,
+.citation-preview__signal,
+.citation-preview__mention-list {
+  display: grid;
+  gap: 8px;
+}
+
+.citation-preview__signal a,
+.citation-preview__block a,
+.citation-preview__mention-list a,
+.citation-preview__actions a {
+  color: var(--navy);
+}
+
+.citation-preview__mention-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.citation-preview__compare small {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.citation-preview__diff-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.citation-preview__diff-list li {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.citation-preview__diff-list span {
+  display: inline-block;
+  min-width: 64px;
+  margin-right: 6px;
+  color: var(--ink);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.citation-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(27, 28, 21, 0.08);
+}
+
+.citation-preview__actions a {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.citation-preview__loading {
+  color: var(--ink-soft);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 900px) {
+  .citation-preview {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
+
+  .citation-preview__surface {
+    box-shadow: 0 18px 42px rgba(27, 28, 21, 0.24);
+  }
+}

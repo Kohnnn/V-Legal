@@ -14,36 +14,36 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://vlegal.[SITE_HOSTNAME]/api/:splat"
+  to = "https://vlegal.213.35.101.237.sslip.io/api/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/documents/*"
-  to = "https://vlegal.[SITE_HOSTNAME]/documents/:splat"
+  to = "https://vlegal.213.35.101.237.sslip.io/documents/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/tracking"
-  to = "https://vlegal.[SITE_HOSTNAME]/tracking"
+  to = "https://vlegal.213.35.101.237.sslip.io/tracking"
   status = 200
   force = true
 
 [[redirects]]
   from = "/research/*"
-  to = "https://vlegal.[SITE_HOSTNAME]/research/:splat"
+  to = "https://vlegal.213.35.101.237.sslip.io/research/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/compare/*"
-  to = "https://vlegal.[SITE_HOSTNAME]/compare/:splat"
+  to = "https://vlegal.213.35.101.237.sslip.io/compare/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/*"
-  to = "https://vlegal.[SITE_HOSTNAME]/:splat"
+  to = "https://vlegal.213.35.101.237.sslip.io/:splat"
   status = 200
   force = true
