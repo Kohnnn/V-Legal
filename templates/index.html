@@ -3,125 +3,158 @@
 {% block title %}V-Legal Archive{% endblock %}
 
 {% block content %}
-<main class="archive-page">
-    <section class="archive-masthead">
-        <div class="masthead-copy">
-            <p class="section-label">Creative North Star / The Scholarly Archive</p>
-            <h1>Vietnamese law, staged like a government gazette and queried like a modern research system.</h1>
-            <p class="masthead-lead">
-                Search and compare Vietnamese legal documents with grounded retrieval, citation mapping, and personal tracking.
+<main class="archive-page archive-page--landing">
+    <section class="archive-hero">
+        <div class="archive-hero__copy">
+            <p class="section-label">V-Legal Archive</p>
+            <h1>Navigate Vietnamese law with search, citation context, and article-level comparison.</h1>
+            <p class="archive-hero__lead">
+                Read legal texts in a more formal document view, trace related provisions, and move from one cited law to the next without losing your reading context.
             </p>
-        </div>
-        <div class="masthead-stats">
-            <article>
-                <span>Loaded documents</span>
-                <strong>{{ stats["document_count"] }}</strong>
-            </article>
-            <article>
-                <span>Issuing authorities</span>
-                <strong>{{ stats["authority_count"] }}</strong>
-            </article>
-            <article>
-                <span>Tracked laws</span>
-                <strong id="tracked-count">{{ stats["tracked_count"] }}</strong>
-            </article>
-            <article>
-                <span>Official subjects</span>
-                <strong>{{ stats["taxonomy_subject_count"] }}</strong>
-            </article>
-            <article>
-                <span>Graph links</span>
-                <strong>{{ stats["relation_count"] }}</strong>
-            </article>
-            <article>
-                <span>Citation links</span>
-                <strong>{{ stats["citation_link_count"] }}</strong>
-            </article>
-            <article>
-                <span>Research views</span>
-                <strong>{{ stats["research_view_count"] }}</strong>
-            </article>
-            <article>
-                <span>Year range</span>
-                <strong>
-                    {% if stats["min_year"] and stats["max_year"] %}
-                        {{ stats["min_year"] }}-{{ stats["max_year"] }}
-                    {% else %}
-                        Not imported yet
-                    {% endif %}
-                </strong>
-            </article>
-        </div>
-    </section>
 
-    <section class="search-ribbon" aria-label="Archive search">
-        <form method="get" action="/" class="search-form">
-            {% if active_topic %}
-                <div class="active-topic-banner">
-                    <span>Official topic filter</span>
-                    <strong>{{ active_topic.name }}</strong>
-                    <a href="/">Clear topic</a>
-                </div>
-            {% endif %}
-            <div class="search-form__topline">
-                <label class="search-query-field">
-                    <span>Search by title, number, clause, or concept</span>
-                    <input type="search" name="q" value="{{ query }}" placeholder="Ex: 30/CT-TTg, boi thuong dat dai, bao hiem huu tri, cong nghiep van hoa">
-                </label>
+            <div class="archive-hero__metrics">
+                <article>
+                    <span>Documents</span>
+                    <strong>{{ stats["document_count"] }}</strong>
+                </article>
+                <article>
+                    <span>Citation links</span>
+                    <strong>{{ stats["citation_link_count"] }}</strong>
+                </article>
+                <article>
+                    <span>Lifecycle links</span>
+                    <strong>{{ stats["relation_count"] }}</strong>
+                </article>
+                <article>
+                    <span>Year range</span>
+                    <strong>
+                        {% if stats["min_year"] and stats["max_year"] %}
+                            {{ stats["min_year"] }}-{{ stats["max_year"] }}
+                        {% else %}
+                            Chưa nhập
+                        {% endif %}
+                    </strong>
+                </article>
+            </div>
+        </div>
+
+        <div class="archive-hero__search">
+            <form method="get" action="/" class="archive-search-card">
                 {% if active_topic %}
-                    <input type="hidden" name="topic" value="{{ active_topic.slug }}">
+                    <div class="active-topic-banner active-topic-banner--compact">
+                        <span>Official topic filter</span>
+                        <strong>{{ active_topic.name }}</strong>
+                        <a href="/">Clear topic</a>
+                    </div>
                 {% endif %}
-                <button type="submit" class="button-primary">Search Archive</button>
-            </div>
-            <div class="search-form__filters">
-                <label class="filter-field">
-                    <span>Document type</span>
-                    <select name="legal_type">
-                        <option value="">All types</option>
-                        {% for item in filters["legal_types"] %}
-                            <option value="{{ item }}" {% if selected_type == item %}selected{% endif %}>{{ item }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label class="filter-field">
-                    <span>Year</span>
-                    <select name="year">
-                        <option value="">All years</option>
-                        {% for item in filters["years"] %}
-                            <option value="{{ item }}" {% if selected_year == item %}selected{% endif %}>{{ item }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label class="filter-field filter-field--grow">
-                    <span>Issuing authority</span>
-                    <input type="text" name="issuer" value="{{ selected_issuer }}" placeholder="Ex: Thu tuong Chinh phu">
-                </label>
-            </div>
-        </form>
-        <form method="post" action="/research/views" class="save-view-form">
-            <input type="hidden" name="q" value="{{ query }}">
-            <input type="hidden" name="topic" value="{{ active_topic.slug if active_topic else '' }}">
-            <input type="hidden" name="legal_type" value="{{ selected_type }}">
-            <input type="hidden" name="year" value="{{ selected_year or '' }}">
-            <input type="hidden" name="issuer" value="{{ selected_issuer }}">
-            <label class="save-view-form__field">
-                <span>Save current research view</span>
-                <input type="text" name="name" placeholder="Ex: Cultural industry watch, Insurance issuer scan">
-            </label>
-            <button type="submit" class="entry-link">Save View</button>
-        </form>
+
+                <div class="archive-search-card__bar">
+                    <label class="search-query-field">
+                        <span>Search by title, number, article, or concept</span>
+                        <input type="search" name="q" value="{{ query }}" placeholder="Ex: 30/CT-TTg, boi thuong dat dai, bao hiem huu tri, cong nghiep van hoa">
+                    </label>
+                    {% if active_topic %}
+                        <input type="hidden" name="topic" value="{{ active_topic.slug }}">
+                    {% endif %}
+                    <button type="submit" class="button-primary">Search</button>
+                </div>
+
+                <div class="archive-search-card__filters">
+                    <label class="filter-field">
+                        <span>Type</span>
+                        <select name="legal_type">
+                            <option value="">All</option>
+                            {% for item in filters["legal_types"] %}
+                                <option value="{{ item }}" {% if selected_type == item %}selected{% endif %}>{{ item }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="filter-field">
+                        <span>Year</span>
+                        <select name="year">
+                            <option value="">All</option>
+                            {% for item in filters["years"] %}
+                                <option value="{{ item }}" {% if selected_year == item %}selected{% endif %}>{{ item }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="filter-field filter-field--grow">
+                        <span>Issuing authority</span>
+                        <input type="text" name="issuer" value="{{ selected_issuer }}" placeholder="Ex: Thu tuong Chinh phu">
+                    </label>
+                </div>
+
+                {% if top_legal_types %}
+                    <div class="archive-search-card__suggestions">
+                        <span>Suggested</span>
+                        <div class="search-chip-list">
+                            {% for item in top_legal_types[:5] %}
+                                <a class="search-chip" href="/?legal_type={{ item.legal_type }}">{{ item.legal_type }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
     </section>
 
-    <section class="archive-grid">
-        <aside class="archive-rail archive-rail--left">
-            <section class="tone-panel" id="tracked-laws">
-                <div class="panel-heading">
-                    <p class="section-label">Personal tracking</p>
-                    <h2>My Followed Laws</h2>
+    <section class="archive-showcase">
+        <div class="archive-showcase__issues">
+            <div class="column-heading column-heading--landing">
+                <div>
+                    <p class="section-label">Newly issued</p>
+                    <h2>Latest records in the archive</h2>
                 </div>
-                {% if tracked_documents %}
-                    <div class="tracked-list">
-                        {% for item in tracked_documents %}
+                <a class="entry-link entry-link--ghost" href="#archive-results">Browse archive</a>
+            </div>
+
+            <div class="issued-list">
+                {% for item in recent_documents[:3] %}
+                    <article class="issued-card">
+                        <div class="issued-card__date">
+                            <small>Issue date</small>
+                            <strong>{{ item.issuance_date or "Undated" }}</strong>
+                        </div>
+                        <div class="issued-card__content">
+                            <div class="archive-entry__meta">
+                                <span class="meta-chip meta-chip--soft">{{ item.legal_type or "Document" }}</span>
+                                {% if item.document_number %}<span>{{ item.document_number }}</span>{% endif %}
+                            </div>
+                            <h3><a href="/documents/{{ item.id }}">{{ item.title }}</a></h3>
+                            <p class="archive-entry__snippet">{{ item.excerpt or item.issuing_authority or "Recently imported legal record." }}</p>
+                        </div>
+                        <div class="issued-card__actions">
+                            <a class="entry-link" href="/documents/{{ item.id }}">Read</a>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </div>
+
+        <aside class="archive-showcase__side">
+            <section class="tone-panel tone-panel--compact landing-sidebar-card">
+                <div class="panel-heading">
+                    <p class="section-label">Trending Types</p>
+                    <h2>Most loaded categories</h2>
+                </div>
+                <div class="landing-rank-list">
+                    {% for item in top_legal_types[:5] %}
+                        <a class="landing-rank-item" href="/?legal_type={{ item.legal_type }}">
+                            <strong>{{ item.legal_type }}</strong>
+                            <span>{{ item.total }} indexed records</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% if tracked_documents %}
+                <section class="tone-panel tone-panel--compact landing-sidebar-card">
+                    <div class="panel-heading">
+                        <p class="section-label">Tracking</p>
+                        <h2>My followed laws</h2>
+                    </div>
+                    <div class="tracked-list tracked-list--compact">
+                        {% for item in tracked_documents[:4] %}
                             <a class="tracked-item" href="/documents/{{ item.id }}">
                                 <strong>{{ item.title }}</strong>
                                 <span>{{ item.document_number or item.legal_type or "Document" }}</span>
@@ -129,45 +162,32 @@
                         {% endfor %}
                     </div>
                     <a class="entry-link entry-link--full" href="/tracking">Open workbench</a>
-                {% else %}
-                    <p class="panel-copy">
-                        Track laws directly from the archive list or a document page. This is the first step toward the portfolio workflow from the design ideas.
-                    </p>
-                    <a class="entry-link entry-link--full" href="/tracking">Open workbench</a>
-                {% endif %}
-            </section>
-
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Official taxonomy</p>
-                    <h2>Phap dien subjects</h2>
-                </div>
-                <div class="taxonomy-list">
-                    {% for item in taxonomy_subjects %}
-                        <a class="taxonomy-item {% if active_topic and active_topic.slug == item.slug %}is-active{% endif %}" href="/?topic={{ item.slug }}">
-                            <strong>{{ item.name }}</strong>
-                            <span>{{ item.document_count }} linked docs</span>
-                        </a>
-                    {% endfor %}
-                </div>
-            </section>
-
-            <section class="tone-panel">
-                <div class="panel-heading">
-                    <p class="section-label">Grounded retrieval</p>
-                    <h2>Ask the corpus</h2>
-                </div>
-                <form class="ask-form" data-ask-form>
-                    <label for="question">Question</label>
-                    <textarea id="question" name="question" rows="4" placeholder="Vi du: Van ban nao dieu chinh cong nghiep van hoa?"></textarea>
-                    <button type="submit" class="button-primary">Generate Brief</button>
-                </form>
-                <div class="ask-output muted" data-ask-output>
-                    Answer grounded in the local 478-document corpus.
-                </div>
-            </section>
+                </section>
+            {% endif %}
         </aside>
+    </section>
 
+    <section class="archive-category-section" id="archive-categories">
+        <div class="column-heading column-heading--landing">
+            <div>
+                <p class="section-label">The foundation</p>
+                <h2>Legal categories</h2>
+            </div>
+            <a class="entry-link entry-link--ghost" href="#archive-results">Browse library</a>
+        </div>
+
+        <div class="archive-category-grid">
+            {% for item in top_legal_types[:6] %}
+                <a class="archive-category-card" href="/?legal_type={{ item.legal_type }}">
+                    <span class="archive-category-card__meta">{{ item.total }} documents</span>
+                    <strong>{{ item.legal_type }}</strong>
+                    <p>Browse indexed records, recent amendments, and citation context for {{ item.legal_type|lower }} materials.</p>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="archive-grid archive-grid--landing" id="archive-results">
         <section class="archive-column">
             <div class="column-heading">
                 <div>
@@ -194,9 +214,9 @@
                     <code>uv run python scripts/bootstrap_appwrite_to_sqlite.py</code>
                 </section>
             {% elif results["items"] %}
-                <div class="archive-list">
+                <div class="archive-list archive-list--condensed">
                     {% for item in results["items"] %}
-                        <article class="archive-entry">
+                        <article class="archive-entry archive-entry--condensed">
                             <div class="archive-entry__header">
                                 <div class="archive-entry__meta">
                                     <span class="meta-chip meta-chip--soft">{{ item.legal_type or "Document" }}</span>
@@ -243,13 +263,13 @@
 
                 {% if results["page_count"] > 1 %}
                     <nav class="pagination" aria-label="Pagination">
-                    {% set previous_page = results["page"] - 1 %}
-                    {% set next_page = results["page"] + 1 %}
-                    <a class="pagination-link {% if results["page"] == 1 %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ previous_page if previous_page > 0 else 1 }}">Previous</a>
-                    <span>Page {{ results["page"] }} of {{ results["page_count"] }}</span>
-                    <a class="pagination-link {% if results["page"] >= results["page_count"] %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ next_page if next_page <= results["page_count"] else results["page_count"] }}">Next</a>
-                </nav>
-            {% endif %}
+                        {% set previous_page = results["page"] - 1 %}
+                        {% set next_page = results["page"] + 1 %}
+                        <a class="pagination-link {% if results["page"] == 1 %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ previous_page if previous_page > 0 else 1 }}">Previous</a>
+                        <span>Page {{ results["page"] }} of {{ results["page_count"] }}</span>
+                        <a class="pagination-link {% if results["page"] >= results["page_count"] %}is-disabled{% endif %}" href="?q={{ query }}&topic={{ active_topic.slug if active_topic else '' }}&legal_type={{ selected_type }}&year={{ selected_year or '' }}&issuer={{ selected_issuer }}&page={{ next_page if next_page <= results["page_count"] else results["page_count"] }}">Next</a>
+                    </nav>
+                {% endif %}
             {% else %}
                 <section class="empty-block">
                     <h3>No results found</h3>
@@ -258,19 +278,55 @@
             {% endif %}
         </section>
 
-        <aside class="archive-rail archive-rail--right">
-            <section class="tone-panel">
+        <aside class="archive-rail archive-rail--landing">
+            {% if query or active_topic or selected_type or selected_year or selected_issuer %}
+                <section class="tone-panel tone-panel--compact">
+                    <div class="panel-heading">
+                        <p class="section-label">Saved research</p>
+                        <h2>Save this filter set</h2>
+                    </div>
+                    <form method="post" action="/research/views" class="save-view-form save-view-form--compact">
+                        <input type="hidden" name="q" value="{{ query }}">
+                        <input type="hidden" name="topic" value="{{ active_topic.slug if active_topic else '' }}">
+                        <input type="hidden" name="legal_type" value="{{ selected_type }}">
+                        <input type="hidden" name="year" value="{{ selected_year or '' }}">
+                        <input type="hidden" name="issuer" value="{{ selected_issuer }}">
+                        <label class="save-view-form__field">
+                            <span>Name</span>
+                            <input type="text" name="name" placeholder="Ex: Land law watch, insurance issuer scan">
+                        </label>
+                        <button type="submit" class="entry-link">Save View</button>
+                    </form>
+                </section>
+            {% endif %}
+
+            <section class="tone-panel tone-panel--compact">
                 <div class="panel-heading">
-                    <p class="section-label">Recent additions</p>
-                    <h2>Newest records</h2>
+                    <p class="section-label">Official taxonomy</p>
+                    <h2>Phap dien subjects</h2>
                 </div>
-                <div class="recent-list">
-                    {% for item in recent_documents %}
-                        <a class="recent-item" href="/documents/{{ item.id }}">
-                            <strong>{{ item.title }}</strong>
-                            <span>{{ item.document_number or item.issuance_date or item.legal_type }}</span>
+                <div class="taxonomy-list taxonomy-list--compact">
+                    {% for item in taxonomy_subjects[:8] %}
+                        <a class="taxonomy-item {% if active_topic and active_topic.slug == item.slug %}is-active{% endif %}" href="/?topic={{ item.slug }}">
+                            <strong>{{ item.name }}</strong>
+                            <span>{{ item.document_count }} linked docs</span>
                         </a>
                     {% endfor %}
+                </div>
+            </section>
+
+            <section class="tone-panel tone-panel--compact">
+                <div class="panel-heading">
+                    <p class="section-label">Grounded retrieval</p>
+                    <h2>Ask the corpus</h2>
+                </div>
+                <form class="ask-form" data-ask-form>
+                    <label for="question">Question</label>
+                    <textarea id="question" name="question" rows="3" placeholder="Vi du: Van ban nao dieu chinh cong nghiep van hoa?"></textarea>
+                    <button type="submit" class="button-primary">Generate Brief</button>
+                </form>
+                <div class="ask-output muted" data-ask-output>
+                    Answer grounded in the local legal corpus.
                 </div>
             </section>
         </aside>

@@ -167,6 +167,29 @@ document.addEventListener("DOMContentLoaded", () => {
       .replaceAll("'", "&#39;");
   }
 
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function renderHighlightedText(value, phrase) {
+    const content = String(value || "").trim();
+    if (!content) {
+      return "";
+    }
+    if (!phrase) {
+      return escapeHtml(content);
+    }
+
+    const match = content.match(new RegExp(escapeRegExp(phrase), "i"));
+    if (!match || match.index === undefined) {
+      return escapeHtml(content);
+    }
+
+    const start = match.index;
+    const end = start + match[0].length;
+    return `${escapeHtml(content.slice(0, start))}<mark class="citation-preview__mark">${escapeHtml(content.slice(start, end))}</mark>${escapeHtml(content.slice(end))}`;
+  }
+
   function saveSelected() {
     window.localStorage.setItem(compareStorageKey, JSON.stringify(selected));
   }
@@ -267,7 +290,12 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = `/compare/${selected[0].id}/${selected[1].id}`;
   }
 
-  function renderCitationPreview(payload) {
+  function renderCitationPreview(payload, options = {}) {
+    const {
+      showClose = true,
+      includePinAction = true,
+      pinned = false,
+    } = options;
     const target = payload.target_document || {};
     const mention = payload.mention || {};
     const sourceSection = payload.source_section || {};
@@ -278,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const comparePreview = target.compare_preview;
     const meaningfulComparePreview =
       comparePreview && comparePreview.change?.label !== "unmatched";
+    const sourceQuote = sourceSection.quote || sourceSection.excerpt;
 
     const signalMarkup = signals
       .map((item) => {
@@ -303,6 +332,10 @@ document.addEventListener("DOMContentLoaded", () => {
       )
       .join("");
 
+    const sourceQuoteMarkup = sourceQuote
+      ? `<blockquote class="citation-preview__quote">${renderHighlightedText(sourceQuote, mention.raw_reference || "")}</blockquote>`
+      : "";
+
     const compareChangeMarkup = meaningfulComparePreview
       ? `
         <div class="citation-preview__block citation-preview__compare">
@@ -318,9 +351,19 @@ document.addEventListener("DOMContentLoaded", () => {
       `
       : "";
 
+    const pinActionMarkup = includePinAction
+      ? `<button type="button" class="citation-preview__pin-btn" data-citation-pin>${pinned ? "Remove Pin" : "Pin to Rail"}</button>`
+      : "";
+
+    const compareActionMarkup = meaningfulComparePreview
+      ? `<a href="${escapeHtml(comparePreview.compare_path)}">Review Change</a>`
+      : target.compare_path
+        ? `<a href="${escapeHtml(target.compare_path)}">Compare</a>`
+        : "";
+
     return `
       <div class="citation-preview__body">
-        <button type="button" class="citation-preview__close" data-citation-preview-close aria-label="Close citation preview">Close</button>
+        ${showClose ? '<button type="button" class="citation-preview__close" data-citation-preview-close aria-label="Close citation preview">Close</button>' : ""}
         <p class="citation-preview__eyebrow">${escapeHtml(mention.link_label || "Referenced Document")}</p>
         <h3>${escapeHtml(target.title || "Referenced legal document")}</h3>
         <p class="citation-preview__meta">${escapeHtml(target.document_number || target.legal_type || "Văn bản pháp luật")}${target.issuance_date ? ` · ${escapeHtml(target.issuance_date)}` : ""}</p>
@@ -329,6 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="citation-preview__block">
           <strong>Reference Context</strong>
           <p>${escapeHtml(sourceSection.label || "Current section")}${mention.raw_reference ? ` · ${escapeHtml(mention.raw_reference)}` : ""}</p>
+          ${sourceQuoteMarkup}
         </div>
 
         ${targetSection ? `
@@ -357,8 +401,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="citation-preview__actions">
           <a href="${escapeHtml(target.reader_path || `/documents/${target.id}`)}">Open Document</a>
-          ${comparePreview?.compare_path ? `<a href="${escapeHtml(comparePreview.compare_path)}">Review Change</a>` : target.compare_path ? `<a href="${escapeHtml(target.compare_path)}">Compare</a>` : ""}
+          ${compareActionMarkup}
           ${provenanceRoute ? `<a href="${escapeHtml(provenanceRoute.url)}" target="_blank" rel="noreferrer">Official Source</a>` : ""}
+          ${pinActionMarkup}
         </div>
       </div>
     `;
@@ -384,8 +429,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(preview);
 
     const surface = preview.querySelector(".citation-preview__surface");
+    const railPanel = document.querySelector("[data-citation-rail]");
+    const railEmpty = railPanel?.querySelector("[data-citation-rail-empty]");
+    const railBody = railPanel?.querySelector("[data-citation-rail-body]");
     const cache = new Map();
     let activeLink = null;
+    let activePayload = null;
+    let pinnedLink = null;
+    let pinnedPayload = null;
     let hideTimer = 0;
 
     function isMobilePreview() {
@@ -397,6 +448,62 @@ document.addEventListener("DOMContentLoaded", () => {
         window.clearTimeout(hideTimer);
         hideTimer = 0;
       }
+    }
+
+    function updateLinkStates() {
+      links.forEach((item) => {
+        item.classList.toggle("doc-ref-link--active", item === activeLink);
+        item.classList.toggle("doc-ref-link--pinned", item === pinnedLink);
+      });
+    }
+
+    function decorateCitationLink(link, payload) {
+      link.classList.add("doc-ref-link--resolved");
+      if (payload.target_section) {
+        link.classList.add("doc-ref-link--has-section");
+      }
+      if ((payload.signals || []).length) {
+        link.classList.add("doc-ref-link--has-signal");
+      }
+      if (
+        payload.target_document?.compare_preview
+        && payload.target_document.compare_preview.change?.label !== "unmatched"
+      ) {
+        link.classList.add("doc-ref-link--has-compare");
+      }
+    }
+
+    function clearPinnedCitation() {
+      pinnedLink = null;
+      pinnedPayload = null;
+      if (railPanel) {
+        railPanel.classList.remove("is-active");
+      }
+      if (railBody) {
+        railBody.hidden = true;
+        railBody.innerHTML = "";
+      }
+      if (railEmpty) {
+        railEmpty.hidden = false;
+      }
+      updateLinkStates();
+    }
+
+    function pinCitation(link, payload) {
+      if (!railBody || !railEmpty || !railPanel) {
+        return;
+      }
+      pinnedLink = link;
+      pinnedPayload = payload;
+      railPanel.classList.add("is-active");
+      railEmpty.hidden = true;
+      railBody.hidden = false;
+      railBody.innerHTML = renderCitationPreview(payload, {
+        showClose: false,
+        includePinAction: true,
+        pinned: true,
+      });
+      updateLinkStates();
     }
 
     function getSourceAnchor(link) {
@@ -484,25 +591,29 @@ document.addEventListener("DOMContentLoaded", () => {
     function closePreview() {
       cancelHide();
       activeLink = null;
+      activePayload = null;
       preview.hidden = true;
       preview.classList.remove("is-open");
       preview.style.top = "";
       preview.style.left = "";
+      updateLinkStates();
     }
 
     function scheduleHide() {
       cancelHide();
       hideTimer = window.setTimeout(() => {
         closePreview();
-      }, 160);
+      }, 260);
     }
 
     async function openPreview(link) {
       cancelHide();
       activeLink = link;
+      activePayload = null;
       preview.hidden = false;
       preview.classList.add("is-open");
       surface.innerHTML = '<div class="citation-preview__loading">Loading citation context…</div>';
+      updateLinkStates();
       positionPreview(link);
 
       try {
@@ -510,7 +621,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (activeLink !== link) {
           return;
         }
-        surface.innerHTML = renderCitationPreview(payload);
+        activePayload = payload;
+        decorateCitationLink(link, payload);
+        surface.innerHTML = renderCitationPreview(payload, {
+          showClose: true,
+          includePinAction: Boolean(railBody),
+          pinned: pinnedLink === link,
+        });
         positionPreview(link);
       } catch (error) {
         if (activeLink !== link) {
@@ -549,10 +666,32 @@ document.addEventListener("DOMContentLoaded", () => {
     preview.addEventListener("mouseenter", cancelHide);
     preview.addEventListener("mouseleave", scheduleHide);
     preview.addEventListener("click", (event) => {
+      const pinButton = event.target.closest("[data-citation-pin]");
+      if (pinButton) {
+        event.preventDefault();
+        if (activeLink && activePayload) {
+          if (pinnedLink === activeLink) {
+            clearPinnedCitation();
+          } else {
+            pinCitation(activeLink, activePayload);
+          }
+          closePreview();
+        }
+        return;
+      }
+
       const closeButton = event.target.closest("[data-citation-preview-close]");
       if (closeButton) {
         event.preventDefault();
         closePreview();
+      }
+    });
+
+    railBody?.addEventListener("click", (event) => {
+      const pinButton = event.target.closest("[data-citation-pin]");
+      if (pinButton) {
+        event.preventDefault();
+        clearPinnedCitation();
       }
     });
 

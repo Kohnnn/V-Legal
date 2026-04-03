@@ -35,6 +35,15 @@
   - pointing Netlify redirects at the public Caddy-backed V-Legal host instead of the closed `:8000` port
   - adding `static/_redirects` so manual Netlify deploys reliably preserve proxy rules
   - redeploying `vlegal-frontend` and verifying public document and API routes
+- Compressed the landing page into a tighter archive front page:
+  - compact hero/search band
+  - newly issued list promoted above the archive index
+  - legal categories promoted above secondary tools
+  - tracking, saved research, and ask-the-corpus moved into a tighter right rail
+- Refined the in-text citation reading experience:
+  - added source-side citation quotes to the preview payload
+  - added a pinned citation "reading companion" card in the document side rail
+  - added clearer inline citation states for resolved, section-aware, lifecycle-aware, active, and pinned references
 
 ### Verification
 
