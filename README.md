@@ -1,8 +1,6 @@
 # V-Legal Prototype
 
-V-Legal is a document-first Vietnamese legal research prototype.
-
-It currently combines:
+V-Legal is a document-first Vietnamese legal research prototype combining:
 - a full local legal corpus from Hugging Face
 - official-topic layering from Phap dien
 - official search routes into `vbpl.vn` and `vanban.chinhphu.vn`
@@ -11,17 +9,14 @@ It currently combines:
 
 ## Current Deployment
 
-The live stack is:
-- frontend: Netlify proxy
-- backend: FastAPI on OCI VM
-- corpus: SQLite at `/opt/vlegal/data/full_hf.sqlite`
-- user data: Appwrite TablesDB
+| Layer | Technology |
+|-------|------------|
+| frontend | Netlify proxy |
+| backend | FastAPI on OCI VM |
+| corpus | SQLite at `/opt/vlegal/data/full_hf.sqlite` |
+| user data | Appwrite TablesDB |
 
-Current corpus size:
-- documents: `10,000`
-- taxonomy subjects: `42`
-- relation links: `139`
-- citation links: `11,194`
+**Corpus stats:** `10,000` documents, `42` taxonomy subjects, `139` relation links, `11,194` citation links
 
 ## What It Does
 
@@ -43,125 +38,179 @@ flowchart LR
     N --> O[OCI FastAPI App]
     O --> S[(SQLite Full Corpus)]
     O --> A[(Appwrite TablesDB)]
-    O --> P[Phap dien Seeded Taxonomy]
-    O --> V[VBPL / VNCP Search Routes]
+    O --> P[Phap dien Taxonomy]
+    O --> V[VBPL / VNCP Search]
 ```
 
 ## Data Flow
 
 ```mermaid
 flowchart TD
-    HF[Hugging Face Legal Corpus] --> INGEST[scripts/bootstrap_hf_dataset.py]
-    INGEST --> SQLITE[(full_hf.sqlite)]
-
-    PHAPDIEN[Phap dien Taxonomy] --> TAXONOMY[scripts/bootstrap_phapdien_taxonomy.py]
-    TAXONOMY --> SQLITE
-
+    HF[Hugging Face Legal Corpus] --> INGEST[bootstrap_hf_dataset.py]
+    INGEST --> SQLITE[full_hf.sqlite]
+    PHAPDIEN[Phap dien] --> TAX[bootstrap_phapdien_taxonomy.py]
+    TAX --> SQLITE
     SQLITE --> API[FastAPI + Jinja]
-    API --> READER[Archive / Reader / Compare]
-
-    SQLITE --> REL[scripts/bootstrap_relationship_graph.py]
-    SQLITE --> CIT[scripts/bootstrap_citation_index.py]
-    REL --> SQLITE
-    CIT --> SQLITE
-
-    APPWRITE[(Appwrite)] <--> API
-    READER --> USER[Tracked Laws / Research Views]
-    USER <--> APPWRITE
+    API --> APPWRITE[(Appwrite)]
+    APPWRITE --> USER[Tracked / Research Views]
+    SQLITE --> REL[bootstrap_relationship_graph.py]
+    SQLITE --> CIT[bootstrap_citation_index.py]
+    REL -.-> SQLITE
+    CIT -.-> SQLITE
 ```
 
 ## Repo Map
 
-- `src/vlegal_prototype/app.py` - FastAPI routes and page assembly
-- `src/vlegal_prototype/search.py` - archive search and retrieval
-- `src/vlegal_prototype/structure.py` - legal text structure and inline reference linking
-- `src/vlegal_prototype/citations.py` - citation extraction and graph queries
-- `src/vlegal_prototype/relations.py` - lifecycle / relationship graph
-- `src/vlegal_prototype/compare.py` - side-by-side compare flow
-- `src/vlegal_prototype/appwrite_client.py` - tracked laws and research views
-- `src/vlegal_prototype/db.py` - SQLite schema and helpers
-- `templates/` - Jinja pages
-- `static/` - CSS, JS, favicon
-- `scripts/` - bootstrap and maintenance commands
-- `deploy/oci/` - OCI Docker deployment files
-- `docs/` - deployment notes and journal
+### Core Modules (`src/vlegal_prototype/`)
+
+| File | Responsibility |
+|------|---------------|
+| `app.py` | FastAPI routes, page assembly, startup initialization |
+| `settings.py` | Environment config via pydantic-settings |
+| `db.py` | SQLite schema (FTS5, triggers), connection helpers |
+| `search.py` | FTS5 search, document retrieval, filtering |
+| `structure.py` | Legal text structure, inline reference linking |
+| `citations.py` | Citation extraction, graph queries |
+| `relations.py` | Lifecycle/relationship graph |
+| `compare.py` | Side-by-side document comparison |
+| `appwrite_client.py` | Tracked laws, research views (Appwrite) |
+| `answering.py` | Grounded brief generation |
+| `provenance.py` | VBPL/VNCP provenance profiles |
+| `tracking.py` | Same-subject update alerts |
+
+### Bootstrap Scripts (`scripts/`)
+
+| Script | Purpose |
+|--------|---------|
+| `bootstrap_hf_dataset.py` | Import legal corpus from Hugging Face |
+| `bootstrap_phapdien_taxonomy.py` | Seed taxonomy subjects |
+| `bootstrap_relationship_graph.py` | Build lifecycle relations |
+| `bootstrap_citation_index.py` | Extract and index citations |
+| `bootstrap_appwrite.py` | Sync tracked docs to Appwrite |
+| `prepare_demo_bundle.py` | Prepare preview bundle |
+| `repair_document_dates.py` | Fix date inconsistencies |
+| `oci_maintain.sh` | OCI maintenance helper |
+
+### Other
+- `templates/` - Jinja2 HTML pages
+- `static/` - CSS, JavaScript, favicon
+- `deploy/oci/` - Docker and deployment configs
+- `docs/` - Deployment notes, journal
 
 ## Local Development
 
-Prerequisites:
+### Prerequisites
 - Python `3.12+`
 - `uv`
 
-Install:
+### Quick Start
 
 ```bash
+# Install dependencies
 uv sync
+
+# Run locally
+uv run uvicorn vlegal_prototype.app:app --reload --app-dir src
+# Open http://127.0.0.1:8000
 ```
 
-Run locally:
+### Verification Commands
 
 ```bash
-uv run uvicorn vlegal_prototype.app:app --reload --app-dir src
-```
+# Syntax check all Python
+uv run python -m compileall src scripts
 
-Open:
-
-```text
-http://127.0.0.1:8000
+# Health check (with server running)
+curl http://127.0.0.1:8000/health
 ```
 
 ## Data Bootstrap
 
-Small local sample:
-
+### Small local sample (500 docs)
 ```bash
 uv run python scripts/bootstrap_hf_dataset.py --limit 500 --reset
 uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
 ```
 
-Full corpus database:
+### Continue from offset
+```bash
+uv run python scripts/bootstrap_hf_dataset.py --skip 2000 --limit 2000
+```
 
+### Full corpus
 ```bash
 set VLEGAL_DATABASE_PATH=data/full_hf.sqlite
-uv run python scripts/bootstrap_hf_full_corpus.py --chunk-size 5000 --checkpoint-path data/full_hf_checkpoint.json
+uv run python scripts/bootstrap_hf_dataset.py --chunk-size 5000 --checkpoint-path data/full_hf_checkpoint.json
 uv run python scripts/bootstrap_relationship_graph.py
 uv run python scripts/bootstrap_citation_index.py
 ```
 
-## Environment
+### Preview bundle
+```bash
+uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
+```
 
-Main app variables:
-- `VLEGAL_DATABASE_PATH`
-- `VLEGAL_CORS_ALLOWED_ORIGINS`
-- `VLEGAL_SEARCH_PAGE_SIZE`
-- `VLEGAL_ANSWER_PASSAGE_LIMIT`
+## Environment Variables
 
-Appwrite variables used by the backend:
-- `APPWRITE_ENDPOINT`
-- `APPWRITE_PROJECT_ID`
-- `APPWRITE_DATABASE_ID`
-- `APPWRITE_API_KEY`
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VLEGAL_DATABASE_PATH` | `data/vlegal.sqlite` | SQLite corpus location |
+| `VLEGAL_CORS_ALLOWED_ORIGINS` | `*` | CORS origins |
+| `VLEGAL_SEARCH_PAGE_SIZE` | `20` | Results per page |
+| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `5` | Passages for brief generation |
+| `APPWRITE_ENDPOINT` | - | Appwrite API endpoint |
+| `APPWRITE_PROJECT_ID` | - | Appwrite project ID |
+| `APPWRITE_DATABASE_ID` | - | Appwrite database ID |
+| `APPWRITE_API_KEY` | - | Appwrite API key |
+
+## Testing
+
+Once pytest is installed:
+```bash
+# Run all tests
+uv run python -m pytest tests/ -v
+
+# Run specific test file
+uv run python -m pytest tests/test_search.py -q
+
+# Run specific test function
+uv run python -m pytest tests/test_search.py -k test_search_documents -q
+```
+
+Test files should mirror `src/` structure (e.g., `tests/test_search.py` for `search.py`).
+
+## Manual Verification Routes
+
+After starting the server:
+- `/` - Home/search
+- `/tracking` - Tracked documents
+- `/documents/{id}` - Document detail
+- `/compare/{left_id}/{right_id}` - Side-by-side compare
+- `/health` - Health check
 
 ## Deployment Docs
 
-- `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` - current Netlify + OCI + Appwrite shape
-- `docs/DEPLOYMENT_OCI_VERCEL.md` - OCI backend + Vercel frontend option
-- `docs/DEPLOYMENT.md` - general deployment notes
-- `deploy/oci/MAINTAIN.md` - OCI maintenance tasks
-- `scripts/oci_maintain.sh` - OCI helper script
+| Document | Content |
+|----------|---------|
+| `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` | Current Netlify + OCI + Appwrite |
+| `docs/DEPLOYMENT_OCI_VERCEL.md` | OCI backend + Vercel frontend |
+| `docs/DEPLOYMENT.md` | General deployment notes |
+| `deploy/oci/MAINTAIN.md` | OCI maintenance tasks |
+| `DESIGN.md` | Visual design system |
 
 ## Trust Model
 
-This is still a prototype, not a final authoritative legal-status engine.
+This is a prototype, **not** an authoritative legal-status engine.
 
-Important limits:
-- the Hugging Face corpus is a bootstrap source, not the final source of truth
-- citation and lifecycle graphs are local-corpus-dependent and incomplete
+**Limitations:**
+- Hugging Face corpus is a bootstrap source, not final source of truth
+- Citation and lifecycle graphs are local-corpus-dependent and incomplete
 - VBPL and VNCP links are search routes, not guaranteed canonical deep links
-- grounded briefs are retrieval-based summaries and still require official verification
+- Grounded briefs are retrieval-based summaries requiring official verification
 
-## Project Notes
+## Project References
 
-- memory bank: `.agents/memory-bank/`
-- development journal: `docs/JOURNAL.md`
-- design direction: `DESIGN.md`
+- Design direction: `DESIGN.md`
+- Agent guidance: `AGENTS.md`
+- Development journal: `docs/JOURNAL.md`
+- Memory bank: `.agents/memory-bank/`

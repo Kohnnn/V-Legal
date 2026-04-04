@@ -63,6 +63,10 @@
   - document-number matching now supports historical references such as `sắc lệnh số 63`, `91-SL`, and similar contextual forms
   - target matching now uses document-number aliases and legal-type hints during resolution
   - relation and citation rebuilds can now map more historical references that previously failed strict parsing
+- Added identifier-first search behavior for document-number and numeric queries so lookups like `79` prefer legal identifiers before falling back to concept search.
+- Hardened the reader parser for sloppy raw documents by:
+  - splitting embedded preamble/enactment text out of oversized title blocks
+  - accepting accentless structural headings like `Dieu`, `Chuong`, `Phan`, and `Muc` during display parsing
 
 ### Verification
 

@@ -4,15 +4,22 @@ import re
 import sqlite3
 from html import escape
 
+from .taxonomy import normalize_ascii
+
 
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.*)$")
-ARTICLE_PATTERN = re.compile(r"^(Điều\s+\d+[A-Za-z0-9\-./]*)", re.IGNORECASE)
+ARTICLE_PATTERN = re.compile(r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\-./]*)", re.IGNORECASE)
 ARTICLE_LINE_PATTERN = re.compile(
-    r"^(Điều\s+\d+[A-Za-z0-9\-./]*)(?:[.:]\s*(.*))?$", re.IGNORECASE
+    r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\-./]*)(?:[.:]\s*(.*))?$",
+    re.IGNORECASE,
 )
-SECTION_PATTERN = re.compile(r"^(Mục\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
-CHAPTER_PATTERN = re.compile(r"^(Chương\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
-PART_PATTERN = re.compile(r"^(Phần\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
+SECTION_PATTERN = re.compile(
+    r"^((?:Mục|Muc)\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE
+)
+CHAPTER_PATTERN = re.compile(
+    r"^((?:Chương|Chuong)\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE
+)
+PART_PATTERN = re.compile(r"^((?:Phần|Phan)\s+[IVXLC0-9A-Za-z\-./]+.*)$", re.IGNORECASE)
 ROMAN_HEADING_PATTERN = re.compile(r"^([IVXLC]+)\.\s+(.+)$", re.IGNORECASE)
 CLAUSE_PATTERN = re.compile(r"^(\d+\.)\s+(.*)$")
 POINT_PATTERN = re.compile(r"^([a-zđ]\))\s+(.*)$", re.IGNORECASE)
@@ -53,11 +60,19 @@ PROMULGATOR_KEYWORDS = (
 )
 
 PREAMBLE_PREFIXES = (
-    "căn cứ",
-    "chiếu theo",
-    "xét",
-    "theo đề nghị",
+    "can cu",
+    "chieu theo",
+    "xet",
+    "theo de nghi",
     "sau khi",
+)
+EMBEDDED_PREAMBLE_PATTERN = re.compile(
+    r"\s+(Căn cứ|Chiếu theo|Xét|Theo đề nghị|Sau khi|CAN CU|CHIEU THEO|XET|THEO DE NGHI|SAU KHI)\b",
+    re.IGNORECASE,
+)
+EMBEDDED_ENACTMENT_PATTERN = re.compile(
+    r"\s+(RA SẮC LỆNH:|RA SAC LENH:|QUYẾT ĐỊNH:|QUYET DINH:|NGHỊ QUYẾT:|NGHI QUYET:|THÔNG TƯ:|THONG TU:|LUẬT:|LUAT:)\b",
+    re.IGNORECASE,
 )
 
 DOC_NUMBER_IN_TEXT_PATTERN = re.compile(
@@ -235,11 +250,25 @@ def is_legal_type_line(value: str) -> bool:
 
 
 def is_enactment_line(value: str) -> bool:
-    return bool(ENACTMENT_LINE_PATTERN.match(clean_display_line(value)))
+    cleaned = clean_display_line(value)
+    if ENACTMENT_LINE_PATTERN.match(cleaned):
+        return True
+    normalized = normalize_ascii(cleaned).upper().rstrip(": ")
+    return normalized in {
+        "LUAT",
+        "NGHI DINH",
+        "NGHI QUYET",
+        "QUYET DINH",
+        "CHI THI",
+        "THONG TU",
+        "PHAP LENH",
+        "LENH",
+        "RA SAC LENH",
+    }
 
 
 def is_preamble_start(value: str) -> bool:
-    lowered = clean_display_line(value).lower()
+    lowered = normalize_ascii(clean_display_line(value)).lower()
     return lowered.startswith(PREAMBLE_PREFIXES)
 
 
@@ -261,9 +290,27 @@ def is_promulgator_line(value: str) -> bool:
 
 def split_preamble_clauses(value: str) -> list[str]:
     collapsed = clean_display_line(value)
-    pieces = re.split(r"(?=(?:Căn cứ|Chiếu theo|Xét|Theo đề nghị|Sau khi))", collapsed)
+    pieces = re.split(
+        r"(?=(?:Căn cứ|Chiếu theo|Xét|Theo đề nghị|Sau khi|CAN CU|CHIEU THEO|XET|THEO DE NGHI|SAU KHI))",
+        collapsed,
+    )
     clauses = [piece.strip() for piece in pieces if piece.strip()]
     return clauses or [collapsed]
+
+
+def split_embedded_preamble_paragraph(value: str) -> tuple[str, str | None]:
+    cleaned = clean_display_line(value)
+    match = EMBEDDED_PREAMBLE_PATTERN.search(cleaned)
+    if not match:
+        match = EMBEDDED_ENACTMENT_PATTERN.search(cleaned)
+    if not match or match.start() < 48:
+        return cleaned, None
+
+    title_part = cleaned[: match.start()].strip(" ;:")
+    preamble_part = cleaned[match.start() :].strip()
+    if len(title_part.split()) < 4 or not preamble_part:
+        return cleaned, None
+    return title_part, preamble_part
 
 
 def build_section_anchor_lookup(markdown_content: str) -> dict[str, list[str]]:
@@ -435,6 +482,10 @@ def build_document_display_html(
     title_lines: list[str] = []
     while index < len(paragraphs):
         paragraph = clean_display_line(paragraphs[index])
+        paragraph, embedded_preamble = split_embedded_preamble_paragraph(paragraph)
+        if embedded_preamble:
+            paragraphs[index] = paragraph
+            paragraphs.insert(index + 1, embedded_preamble)
         first_line = clean_display_line(paragraphs[index].splitlines()[0])
         if (
             detect_section(first_line)
