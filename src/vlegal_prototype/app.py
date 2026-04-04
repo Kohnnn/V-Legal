@@ -174,7 +174,7 @@ def home(
     q: str = "",
     page: int = 1,
     legal_type: str | None = None,
-    year: int | None = None,
+    year: str = "",
     issuer: str | None = None,
     topic: str | None = None,
     connection=Depends(get_db),
@@ -185,6 +185,10 @@ def home(
     taxonomy_subjects = get_taxonomy_subjects(connection)
     active_topic = get_taxonomy_subject_by_slug(connection, topic) if topic else None
     effective_query = q.strip()
+    try:
+        selected_year_value = int(year.strip()) if year.strip() else None
+    except ValueError:
+        selected_year_value = None
     if active_topic and not effective_query:
         effective_query = active_topic["name"]
     elif active_topic and effective_query:
@@ -195,7 +199,7 @@ def home(
         page=page,
         page_size=settings.search_page_size,
         legal_type=legal_type,
-        year=year,
+        year=selected_year_value,
         issuer=issuer,
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
@@ -218,7 +222,7 @@ def home(
             "query": q,
             "effective_query": effective_query,
             "selected_type": legal_type or "",
-            "selected_year": year,
+            "selected_year": selected_year_value,
             "selected_issuer": issuer or "",
             "tracked_ids": tracked_ids,
             "tracked_documents": tracked_documents,

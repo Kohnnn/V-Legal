@@ -6,6 +6,7 @@ from datetime import datetime
 
 
 TOKEN_PATTERN = re.compile(r"[0-9A-Za-zÀ-ỹ]+", re.UNICODE)
+IDENTIFIER_HINT_PATTERN = re.compile(r"\d")
 
 
 def to_fts_query(raw_query: str) -> str:
@@ -13,6 +14,113 @@ def to_fts_query(raw_query: str) -> str:
     if not tokens:
         return ""
     return " AND ".join(f'"{token}"*' for token in tokens[:10])
+
+
+def normalize_identifier_query(raw_query: str) -> str:
+    collapsed = re.sub(r"\s+", "", raw_query.strip())
+    return collapsed.upper().replace("-", "/")
+
+
+def looks_like_identifier_query(raw_query: str) -> bool:
+    query = raw_query.strip()
+    if not query:
+        return False
+    return bool(IDENTIFIER_HINT_PATTERN.search(query)) and len(query) <= 64
+
+
+def search_identifier_documents(
+    connection: sqlite3.Connection,
+    query: str,
+    page: int,
+    page_size: int,
+    filters: list[str],
+    filter_params: list[object],
+) -> dict:
+    normalized_query = normalize_identifier_query(query)
+    if not normalized_query:
+        return {"items": [], "page": page, "page_count": 0, "total": 0}
+
+    number_expr = "REPLACE(UPPER(COALESCE(d.document_number, '')), '-', '/')"
+    title_like = f"%{query.strip().upper()}%"
+    prefix_slash = f"{normalized_query}/%"
+    prefix_general = f"{normalized_query}%"
+    predicates = [
+        f"{number_expr} = ?",
+        f"{number_expr} LIKE ?",
+        f"{number_expr} LIKE ?",
+        "UPPER(d.title) LIKE ?",
+    ]
+    predicate_params: list[object] = [
+        normalized_query,
+        prefix_slash,
+        prefix_general,
+        title_like,
+    ]
+
+    where_terms = [f"({' OR '.join(predicates)})", *filters]
+    where_clause = " AND ".join(where_terms)
+    offset = (page - 1) * page_size
+
+    count_sql = f"""
+        SELECT COUNT(*)
+        FROM documents d
+        WHERE {where_clause}
+    """
+    total = connection.execute(
+        count_sql, [*predicate_params, *filter_params]
+    ).fetchone()[0]
+    if not total:
+        return {"items": [], "page": page, "page_count": 0, "total": 0}
+
+    max_reasonable_year = datetime.utcnow().year + 1
+    sql = f"""
+        SELECT
+            d.id,
+            d.document_number,
+            d.title,
+            d.legal_type,
+            d.issuing_authority,
+            d.issuance_date,
+            d.legal_sectors,
+            d.url,
+            d.excerpt AS snippet,
+            CASE
+                WHEN {number_expr} = ? THEN 0
+                WHEN {number_expr} LIKE ? THEN 1
+                WHEN {number_expr} LIKE ? THEN 2
+                WHEN UPPER(d.title) LIKE ? THEN 3
+                ELSE 4
+            END AS match_rank,
+            ABS(LENGTH(COALESCE(d.document_number, '')) - ?) AS number_delta
+        FROM documents d
+        WHERE {where_clause}
+        ORDER BY
+            match_rank ASC,
+            number_delta ASC,
+            CASE WHEN d.year BETWEEN 1800 AND ? THEN d.year END DESC,
+            d.issuance_date DESC,
+            d.title ASC
+        LIMIT ? OFFSET ?
+    """
+    rows = connection.execute(
+        sql,
+        [
+            *predicate_params,
+            len(normalized_query),
+            *predicate_params,
+            *filter_params,
+            max_reasonable_year,
+            page_size,
+            offset,
+        ],
+    ).fetchall()
+    page_count = (total + page_size - 1) // page_size if total else 0
+    return {
+        "items": [dict(row) for row in rows],
+        "page": page,
+        "page_count": page_count,
+        "total": total,
+    }
 
 
 def get_filter_options(connection: sqlite3.Connection) -> dict:
@@ -173,6 +281,18 @@ def search_documents(
 
     query = query.strip()
     if query:
+        if looks_like_identifier_query(query):
+            identifier_results = search_identifier_documents(
+                connection=connection,
+                query=query,
+                page=page,
+                page_size=page_size,
+                filters=filters,
+                filter_params=filter_params,
+            )
+            if identifier_results["total"]:
+                return identifier_results
+
         fts_query = to_fts_query(query)
         if not fts_query:
             return {"items": [], "page": page, "page_count": 0, "total": 0}
