@@ -374,6 +374,29 @@ def get_document(connection: sqlite3.Connection, document_id: int) -> dict | Non
     return dict(row) if row else None
 
 
+def get_documents_by_ids(
+    connection: sqlite3.Connection, document_ids: list[int]
+) -> list[dict]:
+    if not document_ids:
+        return []
+
+    placeholders = ", ".join("?" for _ in document_ids)
+    rows = connection.execute(
+        f"""
+        SELECT *
+        FROM documents
+        WHERE id IN ({placeholders})
+        """,
+        document_ids,
+    ).fetchall()
+    documents_by_id = {row["id"]: dict(row) for row in rows}
+    return [
+        documents_by_id[document_id]
+        for document_id in document_ids
+        if document_id in documents_by_id
+    ]
+
+
 def get_related_documents(
     connection: sqlite3.Connection, document: dict, limit: int = 4
 ) -> list[dict]:
