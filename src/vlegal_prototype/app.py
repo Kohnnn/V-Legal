@@ -44,16 +44,14 @@ from .relations import (
     rebuild_relationship_graph,
 )
 from .search import (
+    get_documents_by_ids,
     get_document,
     get_filter_options,
     get_recent_documents,
     get_related_documents,
     get_top_legal_types,
-    get_tracked_document_ids,
-    get_tracked_documents,
     retrieve_passages,
     search_documents,
-    set_document_tracking,
 )
 from .settings import BASE_DIR, get_settings
 from .taxonomy import (
@@ -88,6 +86,14 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+def get_appwrite_tracked_ids(user_id: str) -> set[int]:
+    return {
+        int(item["document_id"])
+        for item in aw_list_tracked(user_id)
+        if item.get("document_id") is not None
+    }
 
 
 class AskRequest(BaseModel):
@@ -203,10 +209,7 @@ def home(
         issuer=issuer,
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
-    tracked_ids = get_tracked_document_ids(
-        connection,
-        [item["id"] for item in results["items"]],
-    )
+    tracked_ids = get_appwrite_tracked_ids(user_id)
     tracked_documents = aw_list_tracked(user_id)
     recent_documents = get_recent_documents(connection)
     top_legal_types = get_top_legal_types(connection)
@@ -240,11 +243,23 @@ def home(
 def tracking_workbench(request: Request, connection=Depends(get_db)):
     user_id = get_user_id(request)
     aw_tracked = aw_list_tracked(user_id)
-    tracked_ids = [t["document_id"] for t in aw_tracked]
-    tracked_documents = get_tracked_documents(connection)
+    tracked_ids = [
+        int(item["document_id"])
+        for item in aw_tracked
+        if item.get("document_id") is not None
+    ]
+    tracked_documents = get_documents_by_ids(connection, tracked_ids)
+    tracked_meta = {
+        int(item["document_id"]): item
+        for item in aw_tracked
+        if item.get("document_id") is not None
+    }
     alerts: list[dict] = []
     dossiers: list[dict] = []
     for document in tracked_documents:
+        tracked_row = tracked_meta.get(document["id"], {})
+        if tracked_row.get("tracked_at"):
+            document["tracked_at"] = tracked_row["tracked_at"]
         relation_graph = get_document_relation_graph(connection, document["id"])
         citation_graph = get_document_citation_graph(connection, document["id"])
         subjects = get_document_subjects(connection, document["id"])
@@ -360,7 +375,6 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
             section_citation_labels[item["heading"]] = (
                 section_citation_labels.get(item["heading"], 0) + item["citation_count"]
             )
-    tracked_ids = get_tracked_document_ids(connection, [document_id])
     document_subjects = get_document_subjects(connection, document_id)
     provenance = build_provenance_profile(document)
     relation_graph = get_document_relation_graph(connection, document_id)
@@ -386,7 +400,11 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
         related_documents=related_documents,
     )
     aw_tracked = aw_list_tracked(user_id)
-    aw_tracked_ids = {t["document_id"] for t in aw_tracked}
+    aw_tracked_ids = {
+        int(item["document_id"])
+        for item in aw_tracked
+        if item.get("document_id") is not None
+    }
     return templates.TemplateResponse(
         name="document.html",
         request=request,
@@ -495,9 +513,7 @@ def research_view_detail(
         issuer=view.get("issuer"),
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
-    tracked_ids = get_tracked_document_ids(
-        connection, [item["id"] for item in results["items"]]
-    )
+    tracked_ids = get_appwrite_tracked_ids(user_id)
 
     return templates.TemplateResponse(
         name="research_view.html",
@@ -572,12 +588,12 @@ def api_track_document(
         )
     else:
         aw_untrack_document(user_id, document_id)
-    stats = get_stats(connection)
+    tracked_count = len(aw_list_tracked(user_id))
     return JSONResponse(
         {
             "document_id": document_id,
             "tracked": payload.tracked,
-            "tracked_count": stats["tracked_count"],
+            "tracked_count": tracked_count,
         }
     )
 

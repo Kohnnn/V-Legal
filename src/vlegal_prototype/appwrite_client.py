@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from typing import Any
 
@@ -9,17 +8,15 @@ from appwrite.id import ID
 from appwrite.query import Query
 from appwrite.services.tables_db import TablesDB
 
-APPWRITE_ENDPOINT = os.environ.get("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
-APPWRITE_PROJECT_ID = os.environ.get("APPWRITE_PROJECT_ID", "")
-APPWRITE_DATABASE_ID = os.environ.get("APPWRITE_DATABASE_ID", "")
-APPWRITE_API_KEY = os.environ.get("APPWRITE_API_KEY", "")
+from .settings import get_settings
 
 
 def get_appwrite_client() -> Client:
+    settings = get_settings()
     client = Client()
-    client.set_endpoint(APPWRITE_ENDPOINT)
-    client.set_project(APPWRITE_PROJECT_ID)
-    client.set_key(APPWRITE_API_KEY)
+    client.set_endpoint(settings.appwrite_endpoint)
+    client.set_project(settings.appwrite_project_id)
+    client.set_key(settings.appwrite_api_key)
     return client
 
 
@@ -44,9 +41,10 @@ RESEARCH_COLLECTION = "research_views"
 
 
 def aw_list_tracked(user_id: str) -> list[dict[str, Any]]:
+    settings = get_settings()
     tdb = get_tables_db()
     result = tdb.list_rows(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=TRACKED_COLLECTION,
         queries=[Query.equal("user_id", user_id)],
     )
@@ -59,9 +57,10 @@ def aw_track_document(
     document_title: str,
     document_number: str,
 ) -> dict[str, Any]:
+    settings = get_settings()
     tdb = get_tables_db()
     existing = tdb.list_rows(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=TRACKED_COLLECTION,
         queries=[
             Query.equal("user_id", user_id),
@@ -72,7 +71,7 @@ def aw_track_document(
         return _row_to_dict(existing.rows[0])
 
     doc = tdb.create_row(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=TRACKED_COLLECTION,
         row_id=ID.unique(),
         data={
@@ -87,9 +86,10 @@ def aw_track_document(
 
 
 def aw_untrack_document(user_id: str, document_id: int) -> None:
+    settings = get_settings()
     tdb = get_tables_db()
     existing = tdb.list_rows(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=TRACKED_COLLECTION,
         queries=[
             Query.equal("user_id", user_id),
@@ -98,16 +98,17 @@ def aw_untrack_document(user_id: str, document_id: int) -> None:
     )
     for d in existing.rows:
         tdb.delete_row(
-            database_id=APPWRITE_DATABASE_ID,
+            database_id=settings.appwrite_database_id,
             table_id=TRACKED_COLLECTION,
             document_id=d.id,
         )
 
 
 def aw_list_research_views(user_id: str) -> list[dict[str, Any]]:
+    settings = get_settings()
     tdb = get_tables_db()
     result = tdb.list_rows(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=RESEARCH_COLLECTION,
         queries=[Query.equal("user_id", user_id)],
     )
@@ -115,10 +116,11 @@ def aw_list_research_views(user_id: str) -> list[dict[str, Any]]:
 
 
 def aw_get_research_view(user_id: str, view_id: str) -> dict[str, Any] | None:
+    settings = get_settings()
     tdb = get_tables_db()
     try:
         doc = tdb.get_row(
-            database_id=APPWRITE_DATABASE_ID,
+            database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
             document_id=view_id,
         )
@@ -139,9 +141,10 @@ def aw_create_research_view(
     year: int,
     issuer: str,
 ) -> dict[str, Any]:
+    settings = get_settings()
     tdb = get_tables_db()
     doc = tdb.create_row(
-        database_id=APPWRITE_DATABASE_ID,
+        database_id=settings.appwrite_database_id,
         table_id=RESEARCH_COLLECTION,
         row_id=ID.unique(),
         data={
@@ -159,10 +162,11 @@ def aw_create_research_view(
 
 
 def aw_delete_research_view(user_id: str, view_id: str) -> bool:
+    settings = get_settings()
     tdb = get_tables_db()
     try:
         doc = tdb.get_row(
-            database_id=APPWRITE_DATABASE_ID,
+            database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
             document_id=view_id,
         )
@@ -170,7 +174,7 @@ def aw_delete_research_view(user_id: str, view_id: str) -> bool:
         if d.get("user_id") != user_id:
             return False
         tdb.delete_row(
-            database_id=APPWRITE_DATABASE_ID,
+            database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
             document_id=view_id,
         )
