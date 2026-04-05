@@ -59,6 +59,28 @@ HEAVILY_FILTERED_ISSUER_KEYWORDS = (
     "bo tu phap",
 )
 
+EXCLUDED_SECTOR_KEYWORDS = (
+    "noi vu",
+    "bo may hanh chinh",
+    "chinh quyen dia phuong",
+    "can bo cong chuc vien chuc",
+    "to chuc bien che",
+    "thi dua khen thuong",
+    "bao tro xa hoi",
+    "nguoi co cong",
+    "tre em",
+    "binh dang gioi",
+    "phong chong te nan",
+    "an sinh xa hoi",
+    "tu phap",
+    "ho tich",
+    "quoc tich",
+    "ly lich tu phap",
+    "tro giup phap ly",
+    "tai chinh hanh chinh su nghiep",
+    "tai chinh nha nuoc",
+)
+
 FOCUS_KEYWORDS = (
     "doanh nghiep",
     "co dong",
@@ -180,6 +202,12 @@ PUBLIC_EXCLUDE_KEYWORDS = (
     "chinh quyen dia phuong",
     "thi dua",
     "khen thuong",
+    "bao tro xa hoi",
+    "nguoi co cong",
+    "tre em",
+    "binh dang gioi",
+    "phong chong te nan",
+    "an sinh xa hoi",
 )
 
 METADATA_COLUMNS = [
@@ -311,6 +339,7 @@ def should_include_document(metadata: dict) -> bool:
     primary_issuer_hits = match_keywords(issuer, PRIMARY_ISSUER_KEYWORDS)
     conditional_issuer_hits = match_keywords(issuer, CONDITIONAL_ISSUER_KEYWORDS)
     filtered_issuer_hits = match_keywords(issuer, HEAVILY_FILTERED_ISSUER_KEYWORDS)
+    excluded_sector_hits = match_keywords(sectors, EXCLUDED_SECTOR_KEYWORDS)
     focus_keyword_hits = match_keywords(haystack, FOCUS_KEYWORDS)
     sector_keyword_hits = match_keywords(sectors, FOCUS_SECTOR_KEYWORDS)
     public_exclude_hits = match_keywords(haystack, PUBLIC_EXCLUDE_KEYWORDS)
@@ -330,8 +359,12 @@ def should_include_document(metadata: dict) -> bool:
     exclude_score = len(public_exclude_hits) * 3
     if filtered_issuer_hits:
         exclude_score += 4
+    if excluded_sector_hits:
+        exclude_score += min(6, len(excluded_sector_hits) * 2)
 
     if filtered_issuer_hits and include_score < 6:
+        return False
+    if excluded_sector_hits and include_score < 7:
         return False
     if (
         primary_issuer_hits

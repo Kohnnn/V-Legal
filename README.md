@@ -18,6 +18,8 @@ V-Legal is a document-first Vietnamese legal research prototype combining:
 
 **Corpus note:** the live OCI corpus is rebuilt from Hugging Face into `/opt/vlegal/data/full_hf.sqlite` with a focused economy/finance/industry scope, while tracked laws and research views stay in Appwrite.
 
+**Current live corpus:** `88,962` documents, `11,369` relation links, `636,769` citation links.
+
 ## What It Does
 
 - search Vietnamese legal documents with SQLite FTS5

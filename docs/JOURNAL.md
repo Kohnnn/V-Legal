@@ -22,18 +22,25 @@
 - The focused selector chose `88,962` cached documents and excluded `57,895` out-of-scope records plus `6,563` records that had no cached HTML content.
 - The rebuilt live corpus is now serving `88,962` focused documents on OCI.
 - The focused lifecycle graph rebuilt successfully with `11,369` relation links.
+- The focused citation graph finished rebuilding with `636,769` citation links.
+- Redeployed `vlegal-frontend` to Netlify production through the Netlify CLI after the OCI corpus rebuild.
 
 ### OCI Runtime Note
 
-- The focused citation index rebuild is substantially slower than the document import and relation pass on this corpus size.
-- At the time of this journal update, the citation rebuild is still running in the background on OCI against the new `88,962`-document focused corpus.
-- Search, health checks, and document serving are already back on the focused database while the citation pass continues.
+- The focused citation index rebuild was substantially slower than the document import and relation pass on this corpus size.
+- The app stayed healthy on the new focused database while the citation pass completed in the background.
 
 ### Verification
 
 - `uv run python -m compileall scripts/bootstrap_hf_focused_corpus.py`
-- OCI `/health` returns `{"status":"ok","documents":88962}` during the focused rebuild
+- OCI `/health` returns `{"status":"ok","documents":88962}` on the rebuilt focused corpus
 - The live SQLite count matches the focused selection size after import completes: `88,962`
+- Final focused graph counts on OCI:
+  - `11,369` relations
+  - `636,769` citation links
+- Netlify production redeploy completed:
+  - production URL: `https://vlegal-frontend.netlify.app`
+  - unique deploy URL: `https://69d25abe3b0b3d74449075db--vlegal-frontend.netlify.app`
 
 ## Session: Legal Reader Redesign Foundation
 
