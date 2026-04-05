@@ -1,7 +1,7 @@
 # V-Legal Prototype
 
 V-Legal is a document-first Vietnamese legal research prototype combining:
-- a full local legal corpus from Hugging Face
+- a focused economy/finance/industry legal corpus from Hugging Face
 - official-topic layering from Phap dien
 - official search routes into `vbpl.vn` and `vanban.chinhphu.vn`
 - a formal legal reader with inline cross-reference links
@@ -16,7 +16,7 @@ V-Legal is a document-first Vietnamese legal research prototype combining:
 | corpus | SQLite at `/opt/vlegal/data/full_hf.sqlite` |
 | user data | Appwrite TablesDB |
 
-**Corpus stats:** `10,000` documents, `42` taxonomy subjects, `139` relation links, `11,194` citation links
+**Corpus note:** the live OCI corpus is rebuilt from Hugging Face into `/opt/vlegal/data/full_hf.sqlite` with a focused economy/finance/industry scope, while tracked laws and research views stay in Appwrite.
 
 ## What It Does
 
@@ -83,6 +83,7 @@ flowchart TD
 | Script | Purpose |
 |--------|---------|
 | `bootstrap_hf_dataset.py` | Import legal corpus from Hugging Face |
+| `bootstrap_hf_focused_corpus.py` | Rebuild the economy/finance/industry-focused corpus |
 | `bootstrap_phapdien_taxonomy.py` | Seed taxonomy subjects |
 | `bootstrap_relationship_graph.py` | Build lifecycle relations |
 | `bootstrap_citation_index.py` | Extract and index citations |
@@ -145,6 +146,14 @@ uv run python scripts/bootstrap_relationship_graph.py
 uv run python scripts/bootstrap_citation_index.py
 ```
 
+### Focused economy / finance / industry corpus
+```bash
+set VLEGAL_DATABASE_PATH=data/full_hf.sqlite
+uv run python scripts/bootstrap_hf_focused_corpus.py --reset
+```
+
+See `docs/FOCUSED_CORPUS_SCOPE.md` for the inclusion and exclusion rules.
+
 ### Preview bundle
 ```bash
 uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
@@ -158,10 +167,10 @@ uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
 | `VLEGAL_CORS_ALLOWED_ORIGINS` | `*` | CORS origins |
 | `VLEGAL_SEARCH_PAGE_SIZE` | `20` | Results per page |
 | `VLEGAL_ANSWER_PASSAGE_LIMIT` | `5` | Passages for brief generation |
-| `APPWRITE_ENDPOINT` | - | Appwrite API endpoint |
-| `APPWRITE_PROJECT_ID` | - | Appwrite project ID |
-| `APPWRITE_DATABASE_ID` | - | Appwrite database ID |
-| `APPWRITE_API_KEY` | - | Appwrite API key |
+| `VLEGAL_APPWRITE_ENDPOINT` | - | Appwrite API endpoint |
+| `VLEGAL_APPWRITE_PROJECT_ID` | - | Appwrite project ID |
+| `VLEGAL_APPWRITE_DATABASE_ID` | - | Appwrite database ID |
+| `VLEGAL_APPWRITE_API_KEY` | - | Appwrite API key |
 
 ## Testing
 
@@ -195,6 +204,7 @@ After starting the server:
 | `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` | Current Netlify + OCI + Appwrite |
 | `docs/DEPLOYMENT_OCI_VERCEL.md` | OCI backend + Vercel frontend |
 | `docs/DEPLOYMENT.md` | General deployment notes |
+| `docs/FOCUSED_CORPUS_SCOPE.md` | Focused economy/finance/industry corpus rules |
 | `deploy/oci/MAINTAIN.md` | OCI maintenance tasks |
 | `DESIGN.md` | Visual design system |
 

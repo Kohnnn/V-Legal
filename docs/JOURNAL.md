@@ -1,5 +1,40 @@
 # Development Journal
 
+## Session: Focused Economy Corpus Rebuild
+
+**Date:** 2026-04-05
+**Goal:** Re-scope the live OCI corpus around economy, finance, and industry-sector legal research, document the inclusion rules, and rebuild the production SQLite corpus from that focused scope.
+
+### What Shipped
+
+- Added `docs/FOCUSED_CORPUS_SCOPE.md` to document the focused corpus rules for:
+  - economy, finance, banking, securities, tax, customs, investment, procurement, and trade
+  - business-facing labor and commercial regulation
+  - sector regulation such as real estate, land, construction, energy, transport, telecom, healthcare, pharmaceuticals, and agriculture
+  - issuer weighting for central ministries, conditional inclusion for `Chính phủ` / `Thủ tướng` / `Quốc hội` / `UBND`, and heavy filtering for clearly public-law issuers such as `Bộ Công an`, `Bộ Nội vụ`, and `Bộ Quốc phòng`
+- Added `scripts/bootstrap_hf_focused_corpus.py` to rebuild the local SQLite corpus from Hugging Face using a positive inclusion model instead of a broad all-law import.
+- Updated `README.md` to:
+  - describe the corpus as focused economy/finance/industry rather than a generic full-law mirror
+  - document `bootstrap_hf_focused_corpus.py --reset`
+  - point readers to `docs/FOCUSED_CORPUS_SCOPE.md`
+  - fix the Appwrite environment variable names to the repo's `VLEGAL_APPWRITE_*` settings
+- Rebuilt the live OCI corpus in place from a clean SQLite file because the VM did not have enough free disk for a safe side-by-side second database.
+- The focused selector chose `88,962` cached documents and excluded `57,895` out-of-scope records plus `6,563` records that had no cached HTML content.
+- The rebuilt live corpus is now serving `88,962` focused documents on OCI.
+- The focused lifecycle graph rebuilt successfully with `11,369` relation links.
+
+### OCI Runtime Note
+
+- The focused citation index rebuild is substantially slower than the document import and relation pass on this corpus size.
+- At the time of this journal update, the citation rebuild is still running in the background on OCI against the new `88,962`-document focused corpus.
+- Search, health checks, and document serving are already back on the focused database while the citation pass continues.
+
+### Verification
+
+- `uv run python -m compileall scripts/bootstrap_hf_focused_corpus.py`
+- OCI `/health` returns `{"status":"ok","documents":88962}` during the focused rebuild
+- The live SQLite count matches the focused selection size after import completes: `88,962`
+
 ## Session: Legal Reader Redesign Foundation
 
 **Date:** 2026-04-02
