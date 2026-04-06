@@ -72,6 +72,8 @@ EXCLUDED_SUBJECT_KEYWORDS = (
     "tre em",
     "tu phap",
     "vien chuc",
+    "xay dung phap luat",
+    "thi hanh phap luat",
 )
 
 
