@@ -15,6 +15,65 @@ SEED_PATH = BASE_DIR / "src" / "vlegal_prototype" / "seeds" / "phapdien_subjects
 OPTION_PATTERN = re.compile(r'<option value="([^"]+)">([^<]+)</option>')
 TOKEN_PATTERN = re.compile(r"[0-9a-z]+")
 
+FOCUSED_SUBJECT_KEYWORDS = (
+    "bao hiem",
+    "bat dong san",
+    "buu chinh",
+    "chung khoan",
+    "cong nghe",
+    "cong nghiep",
+    "dat dai",
+    "dau gia",
+    "dau thau",
+    "dau tu",
+    "doanh nghiep",
+    "duoc",
+    "giao thong",
+    "gia",
+    "hai quan",
+    "hop tac xa",
+    "kinh doanh",
+    "khoang san",
+    "khoa hoc",
+    "lao dong",
+    "lam nghiep",
+    "moi truong",
+    "nang luong",
+    "ngan hang",
+    "nong nghiep",
+    "nha o",
+    "quy hoach",
+    "tai chinh",
+    "tai nguyen",
+    "thue",
+    "thuong mai",
+    "thuy loi",
+    "thuy san",
+    "vien thong",
+    "xay dung",
+    "xuat khau",
+    "y te",
+)
+
+EXCLUDED_SUBJECT_KEYWORDS = (
+    "an ninh",
+    "bo tro tu phap",
+    "can bo",
+    "chinh sach xa hoi",
+    "chinh quyen dia phuong",
+    "cong chuc",
+    "giao duc",
+    "hon nhan",
+    "ho tich",
+    "noi vu",
+    "quoc phong",
+    "quoc tich",
+    "thi dua",
+    "tre em",
+    "tu phap",
+    "vien chuc",
+)
+
 
 def normalize_ascii(value: str) -> str:
     value = value.replace("đ", "d").replace("Đ", "D")
@@ -80,6 +139,13 @@ def get_subject_records(prefer_live: bool = True) -> list[dict]:
         except Exception:
             return load_seed_subjects()
     return load_seed_subjects()
+
+
+def is_focused_subject_name(name: str) -> bool:
+    normalized = normalize_ascii(name)
+    if any(keyword in normalized for keyword in EXCLUDED_SUBJECT_KEYWORDS):
+        return False
+    return any(keyword in normalized for keyword in FOCUSED_SUBJECT_KEYWORDS)
 
 
 def upsert_subjects(connection: sqlite3.Connection, subjects: list[dict]) -> None:
@@ -155,7 +221,7 @@ def bootstrap_taxonomy(
 
 
 def get_taxonomy_subjects(
-    connection: sqlite3.Connection, limit: int | None = None
+    connection: sqlite3.Connection, limit: int | None = None, focused_only: bool = True
 ) -> list[dict]:
     sql = """
     SELECT s.id, s.name, s.slug, s.source, s.source_url, COUNT(ds.document_id) AS document_count
@@ -169,7 +235,13 @@ def get_taxonomy_subjects(
         rows = connection.execute(sql, (limit,)).fetchall()
     else:
         rows = connection.execute(sql).fetchall()
-    return [dict(row) for row in rows]
+    subjects = [dict(row) for row in rows]
+    if focused_only:
+        subjects = [item for item in subjects if is_focused_subject_name(item["name"])]
+    subjects.sort(key=lambda item: (-item["document_count"], item["name"]))
+    if limit is not None:
+        return subjects[:limit]
+    return subjects
 
 
 def get_taxonomy_subject_by_slug(
@@ -195,4 +267,8 @@ def get_document_subjects(
         """,
         (document_id,),
     ).fetchall()
-    return [dict(row) for row in rows]
+    subjects = [dict(row) for row in rows]
+    focused_subjects = [
+        item for item in subjects if is_focused_subject_name(item["name"])
+    ]
+    return focused_subjects
