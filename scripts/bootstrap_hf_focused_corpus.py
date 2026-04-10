@@ -250,6 +250,11 @@ def parse_args() -> argparse.Namespace:
         default=settings.database_path.parent / "hf_focused_corpus_selection.json",
     )
     parser.add_argument("--rebuild-selection", action="store_true")
+    parser.add_argument(
+        "--skip-unchanged",
+        action="store_true",
+        help="Skip focused documents whose raw source hash is unchanged.",
+    )
     parser.add_argument("--skip-postprocess", action="store_true")
     return parser.parse_args()
 
@@ -433,11 +438,13 @@ def import_selected_records(
     *,
     chunk_size: int,
     batch_size: int,
-) -> int:
+    skip_unchanged: bool = False,
+) -> dict[str, int]:
     metadata_lookup = fetch_metadata_lookup(document_ids)
     cache_path = ensure_hf_content_cache()
     content_connection = sqlite3.connect(cache_path)
     imported = 0
+    skipped = 0
 
     try:
         for start in range(0, len(document_ids), chunk_size):
@@ -460,18 +467,24 @@ def import_selected_records(
                     )
                 )
                 if len(batch) >= batch_size:
-                    import_documents(connection, batch)
-                    imported += len(batch)
-                    chunk_imported += len(batch)
+                    stats = import_documents(
+                        connection, batch, skip_unchanged=skip_unchanged
+                    )
+                    imported += stats["imported_count"]
+                    skipped += stats["skipped_count"]
+                    chunk_imported += stats["imported_count"]
                     print(
-                        f"  imported {chunk_imported}/{len(chunk_ids)} in current focused chunk..."
+                        f"  imported {chunk_imported}/{len(chunk_ids)} in current focused chunk (skipped {skipped} unchanged overall)..."
                     )
                     batch.clear()
 
             if batch:
-                import_documents(connection, batch)
-                imported += len(batch)
-                chunk_imported += len(batch)
+                stats = import_documents(
+                    connection, batch, skip_unchanged=skip_unchanged
+                )
+                imported += stats["imported_count"]
+                skipped += stats["skipped_count"]
+                chunk_imported += stats["imported_count"]
 
             print(
                 f"Focused chunk complete. Imported {chunk_imported}. Total imported this run {imported}."
@@ -479,7 +492,11 @@ def import_selected_records(
     finally:
         content_connection.close()
 
-    return imported
+    return {
+        "scanned_count": len(document_ids),
+        "imported_count": imported,
+        "skipped_count": skipped,
+    }
 
 
 def main() -> None:
@@ -502,13 +519,16 @@ def main() -> None:
     else:
         print(f"Loaded cached focused selection with {len(selected_ids)} document ids.")
 
-    imported = import_selected_records(
+    stats = import_selected_records(
         connection,
         selected_ids,
         chunk_size=args.chunk_size,
         batch_size=args.batch_size,
+        skip_unchanged=args.skip_unchanged,
     )
-    print(f"Imported {imported} focused documents.")
+    print(f"Imported {stats['imported_count']} focused documents.")
+    if args.skip_unchanged:
+        print(f"Skipped {stats['skipped_count']} unchanged focused documents.")
 
     if not args.skip_postprocess:
         print("Refreshing taxonomy, relations, and citations...")

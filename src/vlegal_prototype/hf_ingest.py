@@ -8,7 +8,7 @@ from html import unescape
 from pathlib import Path
 
 from datasets import load_dataset
-from huggingface_hub import hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 import pyarrow.parquet as pq
 
 from .settings import get_settings
@@ -328,6 +328,16 @@ def get_hf_cache_dir() -> Path:
     cache_dir = get_settings().database_path.parent / "hf_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
+
+
+def get_dataset_revision() -> str:
+    settings = get_settings()
+    try:
+        api = HfApi(token=settings.hf_token or None)
+        info = api.dataset_info(repo_id=settings.dataset_name)
+    except Exception:
+        return ""
+    return info.sha or ""
 
 
 def ensure_hf_content_cache() -> Path:

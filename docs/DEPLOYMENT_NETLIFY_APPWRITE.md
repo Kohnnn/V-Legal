@@ -6,11 +6,11 @@
 
 | Layer | Host | Content |
 |-------|------|---------|
-| Frontend | Netlify | Static Jinja-rendered HTML (existing V-Legal templates) |
+| Frontend | Netlify | Edge proxy + static assets |
 | Backend API | OCI VM | FastAPI — serves legal docs, search, compare, citation graph |
 | User data | Appwrite | Tracked documents, research views, anonymous user sessions |
 
-Auth/login is deferred. User identity is a browser-generated UUID stored in `localStorage`.
+Auth/login is deferred. User identity is a browser-generated UUID persisted in `localStorage` and mirrored in a first-party cookie.
 
 ---
 
@@ -190,10 +190,10 @@ appwrite = "^6.0.0"
 Set these in `deploy/oci/.env`:
 
 ```env
-APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-APPWRITE_PROJECT_ID=your_project_id
-APPWRITE_DATABASE_ID=vlegal
-APPWRITE_API_KEY=your_api_key   # from Appwrite console (for server-side calls)
+VLEGAL_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+VLEGAL_APPWRITE_PROJECT_ID=your_project_id
+VLEGAL_APPWRITE_DATABASE_ID=vlegal
+VLEGAL_APPWRITE_API_KEY=your_api_key
 ```
 
 ---
@@ -216,57 +216,40 @@ appwrite generate --language python --output ./src/generated
 
 ### Appwrite SDK Usage
 
-**Frontend (browser — anonymous user):**
+**Frontend (browser identity only):**
 
-```typescript
-import { Client, Databases } from './generated/appwrite';
+The current frontend does not call Appwrite directly. It keeps a stable anonymous id in first-party storage and sends that id to the FastAPI backend.
 
-const client = new Client()
-    .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
-    .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
-
-const databases = new Databases(client);
-
-// Get or create anonymous user ID from localStorage
-function getUserId(): string {
-    let uid = localStorage.getItem('vlegal_user_id');
-    if (!uid) {
-        uid = crypto.randomUUID();
-        localStorage.setItem('vlegal_user_id', uid);
-    }
-    return uid;
+```javascript
+function getUserId() {
+  let uid = localStorage.getItem("vlegal_user_id");
+  if (!uid) {
+    uid = crypto.randomUUID();
+    localStorage.setItem("vlegal_user_id", uid);
+  }
+  return uid;
 }
 
-// Track a document
-async function trackDocument(doc: {id: number; title: string; document_number: string}) {
-    const uid = getUserId();
-    await databases.use('vlegal').use('tracked_documents').create({
-        user_id: uid,
-        document_id: doc.id,
-        document_title: doc.title,
-        document_number: doc.document_number,
-        tracked_at: new Date().toISOString(),
-    });
-}
+fetch("/api/tracked/123", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-user-id": getUserId(),
+  },
+  credentials: "same-origin",
+  body: JSON.stringify({ tracked: true }),
+});
 ```
 
 **Backend (proxy for tracked documents):**
 
-Since browsers can't safely hold the Appwrite API key, the FastAPI backend proxies Appwrite calls:
+The current app keeps Appwrite credentials on the FastAPI backend and proxies tracked-law and research-view calls server-side.
 
 ```python
 # src/vlegal_prototype/appwrite_client.py
-from appwrite import Client, Databases
-import os
+from vlegal_prototype.appwrite_client import get_tables_db
 
-def get_appwrite_client():
-    client = Client()
-    client.set_endpoint(os.environ["APPWRITE_ENDPOINT"])
-    client.set_project(os.environ["APPWRITE_PROJECT_ID"])
-    client.set_key(os.environ["APPWRITE_API_KEY"])
-    return Databases(client)
-
-aw_db = get_appwrite_client()
+tdb = get_tables_db()
 ```
 
 ---
@@ -275,32 +258,30 @@ aw_db = get_appwrite_client()
 
 ### 4.1 Prepare the Frontend Build
 
-The existing V-Legal Jinja templates need a build step to become static HTML. Since Jinja is server-rendered, you have two options:
+The current Netlify setup is proxy-only.
 
-**Option A: Keep Jinja, deploy to Render or VPS** (simpler — Jinja needs a Python runtime)
+Netlify does not pre-render the Jinja templates into static HTML. Instead, it:
 
-**Option B: Pre-render to static HTML, host on Netlify** (more complex — needs a pre-rendering pipeline)
+1. publishes the `static/` directory for assets and fallback redirect rules
+2. proxies document and API routes to the public OCI backend
 
-For Netlify, the practical approach is:
-
-1. Build the FastAPI app with Jinja templates on a server
-2. Have Netlify proxy API calls to the OCI backend
+The repo already includes a working `netlify.toml` for this shape.
 
 Add a `netlify.toml` at the repo root:
 
 ```toml
 [build]
-  command = "echo 'Frontend served by backend'"
-  publish = "."
+  command = "echo 'Jinja app served by OCI backend - Netlify acts as proxy/edge'"
+  publish = "static"
 
 [[redirects]]
   from = "/api/*"
-  to = "https://vlegal-backend.your-domain.com/:splat"
+  to = "https://your-public-oci-host.example.com/api/:splat"
   status = 200
 
 [[redirects]]
   from = "/*"
-  to = "https://your-oci-vm-public-url.com/:splat"
+  to = "https://your-public-oci-host.example.com/:splat"
   status = 200
 ```
 
@@ -323,12 +304,17 @@ Or connect via GitHub in the Netlify UI.
 
 ### 4.3 Set Environment Variables in Netlify
 
-In Netlify → Site Settings → Environment Variables:
+No Netlify runtime environment variables are required for the current proxy-only frontend.
+
+The current site behavior is driven by `netlify.toml` redirects and the OCI backend configuration.
+
+If you later parameterize the backend origin in a build step, you can add custom frontend env vars then.
+
+For the current repo, focus on the backend env vars instead:
 
 ```env
-VLEGAL_API_BASE_URL=https://your-oci-backend-url.com
-VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-VITE_APPWRITE_PROJECT_ID=your_project_id
+VLEGAL_PUBLIC_BASE_URL=https://your-oci-backend-url.com
+VLEGAL_CORS_ALLOWED_ORIGINS=https://your-netlify-url.netlify.app
 ```
 
 ---
@@ -358,10 +344,10 @@ Then use the Appwrite CLI to bulk import, or write a small migration script.
 ```
 Browser (Netlify CDN)
   |
-  |  Static HTML / JS (Jinja templates served via OCI)
-  |  Appwrite SDK (anonymous user ID from localStorage)
+  |  Static assets + edge redirects
+  |  First-party user id cookie / mirrored localStorage id
   |
-  +---> OCI FastAPI (port 8000) ---------> SQLite (full corpus, 10K docs)
+  +---> OCI FastAPI (port 8000) ---------> SQLite (focused corpus)
   |         |                                  |
   |         |  /api/search                      |
   |         |  /api/documents/{id}              |
@@ -388,17 +374,16 @@ VLEGAL_DATABASE_PATH=/app/data/full_hf.sqlite
 VLEGAL_CORS_ALLOWED_ORIGINS=https://your-netlify-url.netlify.app
 
 # Appwrite (server-side)
-APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-APPWRITE_PROJECT_ID=your_project_id
-APPWRITE_API_KEY=your_api_key
+VLEGAL_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+VLEGAL_APPWRITE_PROJECT_ID=your_project_id
+VLEGAL_APPWRITE_DATABASE_ID=vlegal
+VLEGAL_APPWRITE_API_KEY=your_api_key
 ```
 
 ### Netlify Environment Variables
 
 ```env
-VLEGAL_API_BASE_URL=https://your-oci-backend-url.com
-VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-VITE_APPWRITE_PROJECT_ID=your_project_id
+# None required for the current proxy-only setup.
 ```
 
 ---
@@ -411,19 +396,28 @@ In Appwrite Console → Users → Settings, add your Netlify domain to allowed o
 
 ### Backend can't reach Appwrite
 
-Verify the `APPWRITE_API_KEY` is set correctly on the OCI backend:
+Verify the `VLEGAL_APPWRITE_*` variables are set correctly on the OCI backend:
 
 ```bash
-docker exec vlegal-backend env | grep APPWRITE
+docker exec vlegal-backend env | grep VLEGAL_APPWRITE
 ```
 
 ### Tracked documents not showing
 
-Check that the anonymous user ID is being stored and sent correctly. Open browser DevTools → Application → Local Storage and verify `vlegal_user_id` exists.
+Check that the anonymous user ID is being persisted and sent correctly. Open browser DevTools and verify:
+
+- the `vlegal_user_id` cookie exists
+- `localStorage["vlegal_user_id"]` exists
+- requests to `/api/tracked/...` include the `x-user-id` header
 
 ### Netlify 404 on page reload
 
-Add a `_redirects` file to the publish directory:
+Keep the redirect rules in both places used by this repo:
+
+- `netlify.toml` for the primary site configuration
+- `static/_redirects` for manual Netlify deploys that rely on the publish directory contents
+
+The fallback `_redirects` file should include:
 
 ```
 /*    /index.html   200

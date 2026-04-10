@@ -64,21 +64,14 @@ def build_grounded_brief(question: str, passages: list[dict]) -> dict:
     if not passages:
         return {
             "headline": "No grounded match found in the current local corpus.",
-            "summary": "Try a more specific question, a document number, or import a larger dataset sample first.",
+            "summary": "Try a more specific question, an exact document number, or a narrower legal filter.",
             "findings": [],
             "sources": [],
             "disclaimer": "Prototype mode: this brief only reflects the currently imported local corpus.",
         }
 
     query_terms = extract_terms(question)
-    best_document = passages[0]
     document_frequency = Counter(passage["document_id"] for passage in passages)
-    dominant_document_id, _ = document_frequency.most_common(1)[0]
-    dominant_document = next(
-        passage
-        for passage in passages
-        if passage["document_id"] == dominant_document_id
-    )
 
     candidates: list[tuple[float, str, dict]] = []
     for passage in passages:
@@ -130,17 +123,10 @@ def build_grounded_brief(question: str, passages: list[dict]) -> dict:
             break
 
     return {
-        "headline": f"Strongest signal in the current corpus: {dominant_document['title']}",
+        "headline": "Grounded brief from the current corpus",
         "summary": (
             "This prototype assembled an evidence brief from the most relevant retrieved passages. "
-            f"The closest match surfaced from {best_document['legal_type'] or 'a legal document'} "
-            f"issued by {best_document['issuing_authority'] or 'an issuing authority'}"
-            + (
-                f" on {best_document['issuance_date']}"
-                if best_document.get("issuance_date")
-                else ""
-            )
-            + "."
+            f"It surfaced {len(findings)} key finding(s) across {len(document_frequency)} source document(s)."
         ),
         "findings": findings,
         "sources": source_documents,

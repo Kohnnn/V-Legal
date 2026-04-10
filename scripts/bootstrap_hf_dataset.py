@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete the existing local corpus before importing.",
     )
+    parser.add_argument(
+        "--skip-unchanged",
+        action="store_true",
+        help="Skip documents whose raw source hash is unchanged.",
+    )
     return parser.parse_args()
 
 
@@ -55,28 +60,35 @@ def main() -> None:
         reset_database(connection)
 
     imported = 0
+    skipped = 0
     batch: list[dict] = []
 
     print(
         f"Streaming dataset {get_settings().dataset_name} "
-        f"(skip={args.skip}, limit={args.limit}, batch_size={args.batch_size})"
+        f"(skip={args.skip}, limit={args.limit}, batch_size={args.batch_size}, skip_unchanged={args.skip_unchanged})"
     )
     for record in stream_hf_records(limit=args.limit, skip=args.skip):
         batch.append(record)
         if len(batch) >= args.batch_size:
-            import_documents(connection, batch)
-            imported += len(batch)
-            print(f"Imported {imported} documents...")
+            stats = import_documents(
+                connection, batch, skip_unchanged=args.skip_unchanged
+            )
+            imported += stats["imported_count"]
+            skipped += stats["skipped_count"]
+            print(f"Imported {imported} documents (skipped {skipped} unchanged)...")
             batch.clear()
 
     if batch:
-        import_documents(connection, batch)
-        imported += len(batch)
+        stats = import_documents(connection, batch, skip_unchanged=args.skip_unchanged)
+        imported += stats["imported_count"]
+        skipped += stats["skipped_count"]
 
     bootstrap_taxonomy(connection, prefer_live=False)
     relation_count = rebuild_relationship_graph(connection)
     citation_count = rebuild_citation_index(connection)
     print(f"Done. Imported {imported} documents into {get_settings().database_path}.")
+    if args.skip_unchanged:
+        print(f"Skipped {skipped} unchanged documents.")
     print(f"Refreshed taxonomy and built {relation_count} graph relationships.")
     print(f"Built {citation_count} explicit citation links.")
     connection.close()

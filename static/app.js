@@ -1,3 +1,36 @@
+function generateUserId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+
+  return `vlegal-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getUserId() {
+  try {
+    const existing = window.localStorage.getItem("vlegal_user_id");
+    if (existing && existing.length >= 8) {
+      return existing;
+    }
+
+    const created = generateUserId();
+    window.localStorage.setItem("vlegal_user_id", created);
+    return created;
+  } catch (error) {
+    return generateUserId();
+  }
+}
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  headers.set("x-user-id", getUserId());
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: "same-origin",
+  });
+}
+
 function renderBrief(payload) {
   const findings = (payload.findings || [])
     .map(
@@ -58,7 +91,7 @@ async function handleAskFormSubmit(event) {
   output.classList.add("muted");
 
   try {
-    const response = await fetch("/api/ask", {
+    const response = await apiFetch("/api/ask", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -98,7 +131,7 @@ async function handleTrackButtonClick(event) {
   button.textContent = tracked ? "Removing..." : "Tracking...";
 
   try {
-    const response = await fetch(`/api/tracked/${documentId}`, {
+    const response = await apiFetch(`/api/tracked/${documentId}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -571,7 +604,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (rawReference) {
           params.set("raw_reference", rawReference);
         }
-        const request = fetch(
+        const request = apiFetch(
           `/api/citation-preview/${sourceDocumentId}/${targetDocumentId}?${params.toString()}`,
         )
           .then((response) => {

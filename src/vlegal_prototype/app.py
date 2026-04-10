@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from http.cookies import SimpleCookie
 import os
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from pydantic import BaseModel, Field
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .answering import build_grounded_brief
 from .appwrite_client import (
@@ -38,6 +41,14 @@ from .compare import (
 )
 from .db import get_connection, get_stats, initialize_database, is_empty
 from .provenance import build_provenance_profile, enrich_documents_with_provenance
+from .research import (
+    build_default_view_name,
+    build_research_query_string,
+    create_research_view as create_local_research_view,
+    delete_research_view as delete_local_research_view,
+    get_research_view as get_local_research_view,
+    list_research_views as list_local_research_views,
+)
 from .relations import (
     get_document_relation_graph,
     get_relation_count,
@@ -52,6 +63,7 @@ from .search import (
     get_top_legal_types,
     retrieve_passages,
     search_documents,
+    set_document_tracking,
 )
 from .settings import BASE_DIR, get_settings
 from .taxonomy import (
@@ -65,14 +77,72 @@ from .structure import (
     inject_document_links,
     prepare_document_markup,
 )
-from .tracking import build_tracking_dashboard, get_same_subject_updates
+from .tracking import get_same_subject_updates
+
+
+USER_ID_COOKIE_NAME = "vlegal_user_id"
+USER_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+
+def build_user_id_cookie_header(user_id: str, *, secure: bool) -> str:
+    cookie = SimpleCookie()
+    cookie[USER_ID_COOKIE_NAME] = user_id
+    morsel = cookie[USER_ID_COOKIE_NAME]
+    morsel["httponly"] = True
+    morsel["max-age"] = USER_ID_COOKIE_MAX_AGE
+    morsel["path"] = "/"
+    morsel["samesite"] = "lax"
+    if secure:
+        morsel["secure"] = True
+    return morsel.OutputString()
+
+
+def resolve_user_id(request: Request) -> str:
+    for candidate in (
+        request.headers.get("x-user-id", "").strip(),
+        request.cookies.get(USER_ID_COOKIE_NAME, "").strip(),
+    ):
+        if len(candidate) >= 8:
+            return candidate
+    return os.urandom(16).hex()
 
 
 def get_user_id(request: Request) -> str:
-    uid = request.headers.get("x-user-id", "").strip()
-    if not uid or len(uid) < 8:
-        uid = os.urandom(16).hex()
-    return uid
+    user_id = getattr(request.state, "user_id", "")
+    if len(user_id) >= 8:
+        return user_id
+    user_id = resolve_user_id(request)
+    request.state.user_id = user_id
+    return user_id
+
+
+class UserIdentityMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        user_id = resolve_user_id(request)
+        scope.setdefault("state", {})["user_id"] = user_id
+        cookie_changed = request.cookies.get(USER_ID_COOKIE_NAME) != user_id
+
+        async def send_wrapper(message: Message) -> None:
+            if cookie_changed and message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.append(
+                    "set-cookie",
+                    build_user_id_cookie_header(
+                        user_id,
+                        secure=scope.get("scheme") == "https",
+                    ),
+                )
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 
 settings = get_settings()
@@ -84,16 +154,171 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(UserIdentityMiddleware)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
-def get_appwrite_tracked_ids(user_id: str) -> set[int]:
-    return {
-        int(item["document_id"])
-        for item in aw_list_tracked(user_id)
+def list_local_tracked_rows(connection) -> list[dict]:
+    rows = connection.execute(
+        """
+        SELECT document_id, tracked_at
+        FROM tracked_documents
+        ORDER BY tracked_at DESC
+        """
+    ).fetchall()
+    return [
+        {
+            "id": f"local-{row['document_id']}",
+            "$id": f"local-{row['document_id']}",
+            "document_id": row["document_id"],
+            "tracked_at": row["tracked_at"],
+        }
+        for row in rows
+    ]
+
+
+def list_user_tracked_rows(connection, user_id: str) -> list[dict]:
+    try:
+        return aw_list_tracked(user_id)
+    except Exception:
+        return list_local_tracked_rows(connection)
+
+
+def get_user_tracked_state(connection, user_id: str) -> dict:
+    rows = list_user_tracked_rows(connection, user_id)
+    document_ids = [
+        int(item["document_id"]) for item in rows if item.get("document_id") is not None
+    ]
+    documents = get_documents_by_ids(connection, document_ids)
+    tracked_meta = {
+        int(item["document_id"]): item
+        for item in rows
         if item.get("document_id") is not None
     }
+    for document in documents:
+        tracked_row = tracked_meta.get(document["id"], {})
+        if tracked_row.get("tracked_at"):
+            document["tracked_at"] = tracked_row["tracked_at"]
+    return {
+        "rows": rows,
+        "ids": set(document_ids),
+        "documents": documents,
+    }
+
+
+def track_document_for_user(
+    connection,
+    user_id: str,
+    *,
+    document_id: int,
+    document_title: str,
+    document_number: str,
+) -> None:
+    try:
+        aw_track_document(
+            user_id=user_id,
+            document_id=document_id,
+            document_title=document_title,
+            document_number=document_number,
+        )
+    except Exception:
+        set_document_tracking(connection, document_id, True)
+
+
+def untrack_document_for_user(connection, user_id: str, document_id: int) -> None:
+    try:
+        aw_untrack_document(user_id, document_id)
+    except Exception:
+        set_document_tracking(connection, document_id, False)
+
+
+def normalize_local_research_view(view: dict | None) -> dict | None:
+    if not view:
+        return None
+    normalized = dict(view)
+    normalized.setdefault("$id", str(normalized["id"]))
+    return normalized
+
+
+def list_user_research_views(connection, user_id: str) -> list[dict]:
+    try:
+        return aw_list_research_views(user_id)
+    except Exception:
+        return [
+            normalize_local_research_view(view)
+            for view in list_local_research_views(connection)
+        ]
+
+
+def get_user_research_view(connection, user_id: str, view_id: str) -> dict | None:
+    try:
+        view = aw_get_research_view(user_id, view_id)
+        if view:
+            return view
+    except Exception:
+        pass
+
+    try:
+        local_view_id = int(view_id)
+    except ValueError:
+        return None
+    return normalize_local_research_view(
+        get_local_research_view(connection, local_view_id)
+    )
+
+
+def create_user_research_view(
+    connection,
+    user_id: str,
+    *,
+    name: str,
+    query: str,
+    topic_slug: str,
+    legal_type: str,
+    year: int,
+    issuer: str,
+) -> dict:
+    try:
+        return aw_create_research_view(
+            user_id=user_id,
+            name=name,
+            query=query,
+            topic_slug=topic_slug,
+            legal_type=legal_type,
+            year=year,
+            issuer=issuer,
+        )
+    except Exception:
+        view_id = create_local_research_view(
+            connection,
+            name=name,
+            query=query,
+            topic_slug=topic_slug,
+            legal_type=legal_type,
+            year=year or None,
+            issuer=issuer,
+        )
+        return normalize_local_research_view(
+            get_local_research_view(connection, view_id)
+        )
+
+
+def delete_user_research_view(connection, user_id: str, view_id: str) -> bool:
+    try:
+        if aw_delete_research_view(user_id, view_id):
+            return True
+    except Exception:
+        pass
+
+    try:
+        local_view_id = int(view_id)
+    except ValueError:
+        return False
+    if not get_local_research_view(connection, local_view_id):
+        return False
+    delete_local_research_view(connection, local_view_id)
+    return True
 
 
 class AskRequest(BaseModel):
@@ -209,11 +434,10 @@ def home(
         issuer=issuer,
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
-    tracked_ids = get_appwrite_tracked_ids(user_id)
-    tracked_documents = aw_list_tracked(user_id)
+    tracked_state = get_user_tracked_state(connection, user_id)
     recent_documents = get_recent_documents(connection)
     top_legal_types = get_top_legal_types(connection)
-    research_views = aw_list_research_views(user_id)
+    research_views = list_user_research_views(connection, user_id)
     return templates.TemplateResponse(
         name="index.html",
         request=request,
@@ -227,8 +451,8 @@ def home(
             "selected_type": legal_type or "",
             "selected_year": selected_year_value,
             "selected_issuer": issuer or "",
-            "tracked_ids": tracked_ids,
-            "tracked_documents": tracked_documents,
+            "tracked_ids": tracked_state["ids"],
+            "tracked_documents": tracked_state["documents"],
             "recent_documents": recent_documents,
             "top_legal_types": top_legal_types,
             "research_views": research_views,
@@ -242,13 +466,9 @@ def home(
 @app.get("/tracking", response_class=HTMLResponse)
 def tracking_workbench(request: Request, connection=Depends(get_db)):
     user_id = get_user_id(request)
-    aw_tracked = aw_list_tracked(user_id)
-    tracked_ids = [
-        int(item["document_id"])
-        for item in aw_tracked
-        if item.get("document_id") is not None
-    ]
-    tracked_documents = get_documents_by_ids(connection, tracked_ids)
+    tracked_state = get_user_tracked_state(connection, user_id)
+    aw_tracked = tracked_state["rows"]
+    tracked_documents = tracked_state["documents"]
     tracked_meta = {
         int(item["document_id"]): item
         for item in aw_tracked
@@ -335,8 +555,12 @@ def tracking_workbench(request: Request, connection=Depends(get_db)):
         "alert_count": len(alerts),
         "dossiers": dossiers,
     }
-    research_views = aw_list_research_views(user_id)
-    stats = get_stats(connection)
+    research_views = list_user_research_views(connection, user_id)
+    stats = {
+        **get_stats(connection),
+        "tracked_count": len(aw_tracked),
+        "research_view_count": len(research_views),
+    }
     return templates.TemplateResponse(
         name="tracking.html",
         request=request,
@@ -399,12 +623,7 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
         citation_graph=citation_graph,
         related_documents=related_documents,
     )
-    aw_tracked = aw_list_tracked(user_id)
-    aw_tracked_ids = {
-        int(item["document_id"])
-        for item in aw_tracked
-        if item.get("document_id") is not None
-    }
+    tracked_state = get_user_tracked_state(connection, user_id)
     return templates.TemplateResponse(
         name="document.html",
         request=request,
@@ -419,7 +638,7 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
             "relation_graph": relation_graph,
             "related_documents": related_documents,
             "compare_target": compare_target,
-            "is_tracked": document_id in aw_tracked_ids,
+            "is_tracked": document_id in tracked_state["ids"],
         },
     )
 
@@ -468,7 +687,8 @@ def create_research_view_route(
         legal_type,
     )
     year_value = int(year) if year.strip() else None
-    view = aw_create_research_view(
+    view = create_user_research_view(
+        connection,
         user_id=user_id,
         name=resolved_name,
         query=q,
@@ -488,7 +708,7 @@ def research_view_detail(
     connection=Depends(get_db),
 ):
     user_id = get_user_id(request)
-    view = aw_get_research_view(user_id, view_id)
+    view = get_user_research_view(connection, user_id, view_id)
     if not view:
         raise HTTPException(status_code=404, detail="Research view not found")
 
@@ -513,7 +733,7 @@ def research_view_detail(
         issuer=view.get("issuer"),
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
-    tracked_ids = get_appwrite_tracked_ids(user_id)
+    tracked_ids = get_user_tracked_state(connection, user_id)["ids"]
 
     return templates.TemplateResponse(
         name="research_view.html",
@@ -534,7 +754,7 @@ def delete_research_view_route(
     request: Request, view_id: str, connection=Depends(get_db)
 ):
     user_id = get_user_id(request)
-    if not aw_delete_research_view(user_id, view_id):
+    if not delete_user_research_view(connection, user_id, view_id):
         raise HTTPException(status_code=404, detail="Research view not found")
     return RedirectResponse(url="/tracking", status_code=303)
 
@@ -562,9 +782,9 @@ def api_search(
 
 
 @app.get("/api/tracked")
-def api_tracked(request: Request):
+def api_tracked(request: Request, connection=Depends(get_db)):
     user_id = get_user_id(request)
-    items = aw_list_tracked(user_id)
+    items = list_user_tracked_rows(connection, user_id)
     return JSONResponse({"items": items})
 
 
@@ -580,15 +800,16 @@ def api_track_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     if payload.tracked:
-        aw_track_document(
+        track_document_for_user(
+            connection,
             user_id=user_id,
             document_id=document_id,
             document_title=doc.get("title", ""),
             document_number=doc.get("document_number", ""),
         )
     else:
-        aw_untrack_document(user_id, document_id)
-    tracked_count = len(aw_list_tracked(user_id))
+        untrack_document_for_user(connection, user_id, document_id)
+    tracked_count = len(list_user_tracked_rows(connection, user_id))
     return JSONResponse(
         {
             "document_id": document_id,
@@ -694,6 +915,11 @@ def api_relations(document_id: int, connection=Depends(get_db)):
 def health(connection=Depends(get_db)):
     stats = get_stats(connection)
     return {"status": "ok", "documents": stats["document_count"]}
+
+
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
+def favicon() -> RedirectResponse:
+    return RedirectResponse(url="/static/favicon.svg", status_code=307)
 
 
 def main() -> None:

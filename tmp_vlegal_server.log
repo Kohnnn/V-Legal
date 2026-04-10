@@ -1,0 +1,10 @@
+INFO:     Started server process [61768]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52022 - "GET /documents/697584 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52024 - "GET /compare/140719/108503 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52025 - "POST /api/ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63338 - "GET /documents/697584 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63338 - "GET /static/app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:50794 - "GET /compare/140719/108503 HTTP/1.1" 200 OK
