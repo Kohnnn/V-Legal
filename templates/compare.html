@@ -105,7 +105,7 @@
                     {% for row in compare_view.alignment.rows %}
                         <article class="compare-row compare-row--{{ row.kind }}"{% if row.kind == 'left-only' %} id="left-only-sections"{% endif %}>
                             <div class="compare-row__meta compare-row__meta--portal">
-                                <span class="meta-chip meta-chip--soft">{{ row.reason }}</span>
+                                <span class="meta-chip meta-chip--soft">{{ row.reason_label or row.reason }}</span>
                                 {% if row.score %}<span>Similarity {{ row.score }}</span>{% endif %}
                                 {% if row.change %}<span>{{ row.change.change_label }}</span>{% endif %}
                             </div>

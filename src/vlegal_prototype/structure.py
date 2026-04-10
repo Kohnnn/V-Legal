@@ -32,6 +32,14 @@ ENDMATTER_PATTERN = re.compile(
     r"^(Nơi nhận|Noi nhan|KT\.|TM\.|TL\.|Q\.)\b",
     re.IGNORECASE,
 )
+ENDMATTER_CONTINUATION_PATTERN = re.compile(
+    r"^(?:Điều|Dieu)\s+\d+\s*;",
+    re.IGNORECASE,
+)
+ANNEX_META_PATTERN = re.compile(r"^([^:]{2,60}):\s*(.+)$")
+SIGNATURE_NAME_PATTERN = re.compile(
+    r"^(?P<title>.+?)\s+(?P<name>(?:[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,5}))$"
+)
 LEGAL_TYPE_PATTERN = re.compile(
     r"^(LUẬT|BỘ LUẬT|PHÁP LỆNH|LỆNH|NGHỊ QUYẾT|NGHỊ ĐỊNH|QUYẾT ĐỊNH|CHỈ THỊ|THÔNG TƯ(?: LIÊN TỊCH)?|THÔNG BÁO|THÔNG TRI|HƯỚNG DẪN|KẾ HOẠCH|KẾT LUẬN|QUY CHẾ(?: PHỐI HỢP)?|BÁO CÁO)$",
     re.IGNORECASE,
@@ -74,6 +82,27 @@ PREAMBLE_PREFIXES = (
     "xet",
     "theo de nghi",
     "sau khi",
+)
+
+ANNEX_META_LABELS = {
+    "ma so tthc",
+    "quy trinh thuc hien",
+    "thoi han giai quyet tthc",
+    "co quan thuc hien",
+    "doi tuong thuc hien",
+    "cach thuc thuc hien",
+    "phi le phi",
+}
+
+SIGNATURE_TITLE_SUFFIXES = (
+    "PHÓ CHỦ TỊCH",
+    "CHỦ TỊCH",
+    "PHÓ GIÁM ĐỐC",
+    "GIÁM ĐỐC",
+    "PHÓ TỔNG GIÁM ĐỐC",
+    "TỔNG GIÁM ĐỐC",
+    "THỨ TRƯỞNG",
+    "BỘ TRƯỞNG",
 )
 EMBEDDED_PREAMBLE_PATTERN = re.compile(
     r"\s+(Căn cứ|Chiếu theo|Xét|Theo đề nghị|Sau khi|CAN CU|CHIEU THEO|XET|THEO DE NGHI|SAU KHI)\b",
@@ -304,7 +333,37 @@ def is_endmatter_paragraph(value: str) -> bool:
 
 def is_annex_heading(value: str) -> bool:
     cleaned = clean_display_line(value)
+    if parse_annex_meta_line(cleaned):
+        return False
     return bool(ANNEX_HEADING_PATTERN.match(cleaned)) and len(cleaned.split()) >= 4
+
+
+def is_endmatter_continuation(value: str) -> bool:
+    cleaned = clean_display_line(value)
+    if not cleaned:
+        return False
+    if is_endmatter_paragraph(cleaned):
+        return True
+    if ENDMATTER_CONTINUATION_PATTERN.match(cleaned):
+        return True
+    if "|" in cleaned:
+        return True
+    return is_uppercaseish(cleaned) and len(cleaned.split()) <= 14
+
+
+def parse_annex_meta_line(value: str) -> tuple[str, str] | None:
+    cleaned = clean_display_line(value)
+    match = ANNEX_META_PATTERN.match(cleaned)
+    if not match:
+        return None
+    label = match.group(1).strip()
+    body = match.group(2).strip()
+    if not body:
+        return None
+    normalized_label = normalize_ascii(label).lower()
+    if normalized_label not in ANNEX_META_LABELS:
+        return None
+    return label, body
 
 
 def split_preamble_clauses(value: str) -> list[str]:
@@ -408,6 +467,124 @@ def render_table_block(value: str) -> str | None:
             html_parts.append(f"<td>{escape(clean_display_line(cell))}</td>")
         html_parts.append("</tr>")
     html_parts.append("</tbody></table></div>")
+    return "".join(html_parts)
+
+
+def consume_annex_meta_block(
+    body_paragraphs: list[str], start_index: int
+) -> tuple[list[tuple[str, str]], int]:
+    items: list[tuple[str, str]] = []
+    next_index = start_index
+    while next_index < len(body_paragraphs):
+        parsed = parse_annex_meta_line(body_paragraphs[next_index])
+        if not parsed:
+            break
+        items.append(parsed)
+        next_index += 1
+    return items, next_index
+
+
+def render_annex_meta_block(items: list[tuple[str, str]]) -> str:
+    html_parts = ['<section class="law-annex-meta">']
+    for label, value in items:
+        html_parts.append('<div class="law-annex-meta__row">')
+        html_parts.append(f'<dt class="law-annex-meta__label">{escape(label)}</dt>')
+        html_parts.append(f'<dd class="law-annex-meta__value">{escape(value)}</dd>')
+        html_parts.append("</div>")
+    html_parts.append("</section>")
+    return "".join(html_parts)
+
+
+def consume_endmatter_block(
+    body_paragraphs: list[str], start_index: int
+) -> tuple[list[str], int]:
+    consumed = [body_paragraphs[start_index]]
+    next_index = start_index + 1
+    while next_index < len(body_paragraphs):
+        raw_paragraph = body_paragraphs[next_index]
+        paragraph = clean_display_line(raw_paragraph)
+        if not paragraph:
+            break
+        first_line = clean_display_line(raw_paragraph.splitlines()[0])
+        if (
+            parse_table_block(raw_paragraph)
+            or is_annex_heading(paragraph)
+            or is_enactment_line(paragraph)
+        ):
+            break
+        detected = detect_section(first_line)
+        if detected and not is_endmatter_continuation(paragraph):
+            break
+        if not is_endmatter_continuation(paragraph):
+            break
+        consumed.append(raw_paragraph)
+        next_index += 1
+    return consumed, next_index
+
+
+def split_signature_title_lines(value: str) -> list[str]:
+    cleaned = clean_display_line(value)
+    upper = cleaned.upper()
+    if upper.startswith(("KT.", "TM.", "TL.", "Q.")):
+        for suffix in SIGNATURE_TITLE_SUFFIXES:
+            if upper.endswith(suffix):
+                split_at = len(cleaned) - len(suffix)
+                prefix = cleaned[:split_at].strip()
+                suffix_line = cleaned[split_at:].strip()
+                if prefix and suffix_line and prefix != suffix_line:
+                    return [prefix, suffix_line]
+    return [cleaned]
+
+
+def parse_signature_line(value: str) -> tuple[list[str], str | None]:
+    cleaned = clean_display_line(value)
+    match = SIGNATURE_NAME_PATTERN.match(cleaned)
+    if not match:
+        return split_signature_title_lines(cleaned), None
+    title = match.group("title").strip()
+    name = match.group("name").strip()
+    return split_signature_title_lines(title), name
+
+
+def render_endmatter_block(paragraphs: list[str]) -> str:
+    lines = [
+        clean_display_line(item) for item in paragraphs if clean_display_line(item)
+    ]
+    recipients: list[str] = []
+    signature_lines: list[str] = []
+
+    for line in lines:
+        if "|" in line:
+            left, right = [part.strip() for part in line.split("|", 1)]
+            if left:
+                recipients.append(left)
+            if right:
+                signature_lines.append(right)
+            continue
+        recipients.append(line)
+
+    if len(recipients) >= 2 and normalize_ascii(recipients[0]).lower().startswith(
+        "noi nhan"
+    ):
+        recipients = [f"{recipients[0]} {recipients[1]}", *recipients[2:]]
+
+    html_parts = ['<section class="law-document__endmatter">']
+    for line in recipients:
+        html_parts.append(f'<p class="law-document__endmatter-line">{escape(line)}</p>')
+    if signature_lines:
+        html_parts.append('<div class="law-document__signature-block">')
+        for line in signature_lines:
+            title_lines, signer_name = parse_signature_line(line)
+            for title_line in title_lines:
+                html_parts.append(
+                    f'<p class="law-document__signature-line">{escape(title_line)}</p>'
+                )
+            if signer_name:
+                html_parts.append(
+                    f'<p class="law-document__signature-name">{escape(signer_name)}</p>'
+                )
+        html_parts.append("</div>")
+    html_parts.append("</section>")
     return "".join(html_parts)
 
 
@@ -783,10 +960,11 @@ def build_document_display_html(
         if current_article_open and is_endmatter_paragraph(paragraph):
             html_parts.append("</article>")
             current_article_open = False
-            html_parts.append(
-                f'<div class="law-document__endmatter">{render_lines_html(raw_paragraph)}</div>'
+            endmatter_paragraphs, next_index = consume_endmatter_block(
+                body_paragraphs, body_index
             )
-            body_index += 1
+            html_parts.append(render_endmatter_block(endmatter_paragraphs))
+            body_index = next_index
             continue
 
         if is_annex_heading(paragraph):
@@ -822,6 +1000,14 @@ def build_document_display_html(
                 )
             html_parts.append("</section>")
             body_index += 1
+            continue
+
+        annex_meta_items, next_index = consume_annex_meta_block(
+            body_paragraphs, body_index
+        )
+        if annex_meta_items:
+            html_parts.append(render_annex_meta_block(annex_meta_items))
+            body_index = next_index
             continue
 
         table_html = render_table_block(raw_paragraph)
