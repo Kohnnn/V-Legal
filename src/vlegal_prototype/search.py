@@ -4,9 +4,187 @@ import re
 import sqlite3
 from datetime import datetime
 
+from .taxonomy import normalize_ascii
+
 
 TOKEN_PATTERN = re.compile(r"[0-9A-Za-zÀ-ỹ]+", re.UNICODE)
 IDENTIFIER_HINT_PATTERN = re.compile(r"\d")
+NORMALIZED_TOKEN_PATTERN = re.compile(r"[0-9a-z]+")
+
+PASSAGE_RERANK_STOPWORDS = {
+    "ban",
+    "bo",
+    "cac",
+    "can",
+    "cho",
+    "co",
+    "cua",
+    "da",
+    "de",
+    "den",
+    "dieu",
+    "duoc",
+    "khoan",
+    "la",
+    "luat",
+    "muc",
+    "mot",
+    "ngay",
+    "nghi",
+    "nhung",
+    "noi",
+    "phap",
+    "quyet",
+    "so",
+    "tai",
+    "theo",
+    "thong",
+    "trong",
+    "tu",
+    "van",
+    "ve",
+    "viec",
+    "voi",
+}
+
+FOCUS_QUERY_STOPWORDS = {
+    "ban",
+    "bo",
+    "dinh",
+    "dung",
+    "gi",
+    "huong",
+    "luat",
+    "muc",
+    "nao",
+    "nghi",
+    "noi",
+    "quy",
+    "quyet",
+    "thong",
+    "trinh",
+    "tu",
+    "van",
+    "ve",
+    "viec",
+}
+
+HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+
+
+def normalize_query_text(value: str) -> str:
+    normalized = normalize_ascii(value)
+    normalized = re.sub(r"[^0-9a-z/\s-]", " ", normalized)
+    return " ".join(normalized.split())
+
+
+def tokenize_query_terms(value: str) -> set[str]:
+    return {
+        token
+        for token in NORMALIZED_TOKEN_PATTERN.findall(normalize_query_text(value))
+        if len(token) >= 2 and token not in PASSAGE_RERANK_STOPWORDS
+    }
+
+
+def build_focus_query(raw_query: str) -> str:
+    tokens = TOKEN_PATTERN.findall(raw_query)
+    if not tokens:
+        return raw_query.strip()
+    filtered = [
+        token
+        for token in tokens
+        if any(char.isdigit() for char in token)
+        or normalize_query_text(token) not in FOCUS_QUERY_STOPWORDS
+    ]
+    if filtered and len(filtered) < len(tokens):
+        return " ".join(filtered[:8])
+    return raw_query.strip()
+
+
+def score_passage_match(
+    query: str, row: dict, document_rank_map: dict[int, int] | None = None
+) -> float:
+    normalized_query = normalize_query_text(query)
+    important_terms = tokenize_query_terms(query)
+    normalized_title = normalize_query_text(row.get("title") or "")
+    normalized_heading = normalize_query_text(row.get("heading") or "")
+    normalized_text = normalize_query_text(row.get("text") or "")
+    score = float(-row.get("rank", 0.0))
+
+    if document_rank_map:
+        rank = document_rank_map.get(int(row.get("document_id") or 0))
+        if rank is not None:
+            score += max(0.0, 24.0 - rank)
+
+    if normalized_query and normalized_query in normalized_title:
+        score += 14.0
+    if normalized_query and normalized_query in normalized_heading:
+        score += 10.0
+    if normalized_query and normalized_query in normalized_text:
+        score += 8.0
+
+    for term in important_terms:
+        if term in normalized_title:
+            score += 3.0
+        if term in normalized_heading:
+            score += 2.0
+        if term in normalized_text:
+            score += 1.0
+
+    if normalized_heading.startswith("dieu "):
+        score += 0.25
+
+    return score
+
+
+def rerank_passages(
+    query: str,
+    rows: list[dict],
+    limit: int,
+    *,
+    document_rank_map: dict[int, int] | None = None,
+) -> list[dict]:
+    ranked = sorted(
+        rows,
+        key=lambda item: (
+            score_passage_match(query, item, document_rank_map=document_rank_map),
+            item.get("issuance_date") or "",
+            item.get("ordinal") or 0,
+        ),
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
+def strip_html_tags(value: str | None) -> str:
+    cleaned = HTML_TAG_PATTERN.sub(" ", value or "")
+    return " ".join(cleaned.split())
+
+
+def build_overview_passages(document_results: dict, limit: int = 8) -> list[dict]:
+    overview_rows: list[dict] = []
+    for index, item in enumerate(document_results.get("items", [])[:limit]):
+        text_parts = [item.get("title") or ""]
+        snippet = strip_html_tags(item.get("snippet") or "")
+        if snippet and snippet not in text_parts:
+            text_parts.append(snippet)
+        overview_rows.append(
+            {
+                "id": f"overview-{item['id']}",
+                "document_id": item["id"],
+                "ordinal": 0,
+                "heading": "Tieu de",
+                "text": ". ".join(part for part in text_parts if part),
+                "title": item.get("title") or "",
+                "document_number": item.get("document_number") or "",
+                "legal_type": item.get("legal_type") or "",
+                "issuing_authority": item.get("issuing_authority") or "",
+                "issuance_date": item.get("issuance_date") or "",
+                "url": item.get("url") or "",
+                "rank": float(-(limit - index + 1)),
+            }
+        )
+    return overview_rows
 
 
 def to_fts_query(raw_query: str) -> str:
@@ -121,6 +299,91 @@ def search_identifier_documents(
         "page_count": page_count,
         "total": total,
     }
+
+
+def search_retrieval_documents(
+    connection: sqlite3.Connection,
+    query: str,
+    page: int,
+    page_size: int,
+    filters: list[str],
+    filter_params: list[object],
+) -> dict:
+    fts_query = to_fts_query(query)
+    if not fts_query:
+        return {"items": [], "page": page, "page_count": 0, "total": 0}
+
+    where_clause = (
+        " AND ".join(["document_retrieval_fts MATCH ?", *filters])
+        if filters
+        else "document_retrieval_fts MATCH ?"
+    )
+    count_sql = f"""
+        SELECT COUNT(*)
+        FROM document_retrieval_fts
+        JOIN document_retrieval_profiles dr ON dr.document_id = document_retrieval_fts.rowid
+        JOIN documents d ON d.id = dr.document_id
+        WHERE {where_clause}
+    """
+    total = connection.execute(count_sql, [fts_query, *filter_params]).fetchone()[0]
+    if not total:
+        return {"items": [], "page": page, "page_count": 0, "total": 0}
+
+    offset = (page - 1) * page_size
+    sql = f"""
+        SELECT
+            d.id,
+            d.document_number,
+            d.title,
+            d.legal_type,
+            d.issuing_authority,
+            d.issuance_date,
+            d.legal_sectors,
+            d.url,
+            COALESCE(
+                NULLIF(snippet(document_retrieval_fts, 0, '<mark>', '</mark>', ' ... ', 10), ''),
+                NULLIF(snippet(document_retrieval_fts, 1, '<mark>', '</mark>', ' ... ', 10), ''),
+                NULLIF(snippet(document_retrieval_fts, 2, '<mark>', '</mark>', ' ... ', 10), ''),
+                d.excerpt
+            ) AS snippet,
+            bm25(document_retrieval_fts, 3.0, 2.5, 2.0, 1.0) AS rank
+        FROM document_retrieval_fts
+        JOIN document_retrieval_profiles dr ON dr.document_id = document_retrieval_fts.rowid
+        JOIN documents d ON d.id = dr.document_id
+        WHERE {where_clause}
+        ORDER BY rank, d.year DESC, d.title ASC
+        LIMIT ? OFFSET ?
+    """
+    rows = connection.execute(
+        sql, [fts_query, *filter_params, page_size, offset]
+    ).fetchall()
+    page_count = (total + page_size - 1) // page_size if total else 0
+    return {
+        "items": [dict(row) for row in rows],
+        "page": page,
+        "page_count": page_count,
+        "total": total,
+    }
+
+
+def retrieve_candidate_document_ids(
+    connection: sqlite3.Connection, query: str, limit: int = 48
+) -> list[int]:
+    fts_query = to_fts_query(query)
+    if not fts_query:
+        return []
+    rows = connection.execute(
+        """
+        SELECT dr.document_id
+        FROM document_retrieval_fts
+        JOIN document_retrieval_profiles dr ON dr.document_id = document_retrieval_fts.rowid
+        WHERE document_retrieval_fts MATCH ?
+        ORDER BY bm25(document_retrieval_fts, 3.0, 2.5, 2.0, 1.0)
+        LIMIT ?
+        """,
+        (fts_query, limit),
+    ).fetchall()
+    return [int(row[0]) for row in rows]
 
 
 def get_filter_options(connection: sqlite3.Connection) -> dict:
@@ -309,6 +572,15 @@ def search_documents(
             WHERE {where_clause}
         """
         total = connection.execute(count_sql, [fts_query, *filter_params]).fetchone()[0]
+        if not total:
+            return search_retrieval_documents(
+                connection=connection,
+                query=query,
+                page=page,
+                page_size=page_size,
+                filters=filters,
+                filter_params=filter_params,
+            )
 
         sql = f"""
             SELECT
@@ -484,6 +756,33 @@ def retrieve_passages(
     if document_id is not None:
         filters.append("p.document_id = ?")
         params.append(document_id)
+        document_rank_map: dict[int, int] = {}
+        document_results = {"items": []}
+    else:
+        focus_query = build_focus_query(query)
+        document_results = search_documents(
+            connection=connection,
+            query=focus_query,
+            page=1,
+            page_size=max(limit * 4, 12),
+        )
+        document_rank_map = {
+            int(item["id"]): index
+            for index, item in enumerate(document_results["items"])
+        }
+        candidate_ids = [item["id"] for item in document_results["items"]]
+        if len(candidate_ids) < 24:
+            retrieval_ids = retrieve_candidate_document_ids(
+                connection, focus_query, limit=48
+            )
+            seen_ids = set(candidate_ids)
+            candidate_ids.extend(item for item in retrieval_ids if item not in seen_ids)
+        if candidate_ids:
+            placeholders = ", ".join("?" for _ in candidate_ids)
+            filters.append(f"p.document_id IN ({placeholders})")
+            params.extend(candidate_ids)
+
+    fetch_limit = max(limit * 12, 24)
 
     sql = f"""
         SELECT
@@ -506,5 +805,13 @@ def retrieve_passages(
         ORDER BY rank, d.year DESC
         LIMIT ?
     """
-    rows = connection.execute(sql, [*params, limit]).fetchall()
-    return [dict(row) for row in rows]
+    rows = [
+        dict(row) for row in connection.execute(sql, [*params, fetch_limit]).fetchall()
+    ]
+    rows.extend(build_overview_passages(document_results))
+    return rerank_passages(
+        query,
+        rows,
+        limit,
+        document_rank_map=document_rank_map,
+    )

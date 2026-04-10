@@ -52,6 +52,24 @@ def extract_article_labels(value: str | None) -> list[str]:
     return labels
 
 
+def extract_distinct_target_article_labels(
+    text: str | None, *, self_article: str | None = None
+) -> list[str]:
+    labels = [
+        label
+        for label in extract_article_labels(text)
+        if label and label != self_article
+    ]
+    seen: set[str] = set()
+    distinct: list[str] = []
+    for label in labels:
+        if label in seen:
+            continue
+        seen.add(label)
+        distinct.append(label)
+    return distinct
+
+
 def split_clause_units(text: str, max_items: int = 12) -> list[str]:
     collapsed = text.replace("\r\n", "\n").replace("\r", "\n")
     paragraphs = [
@@ -368,9 +386,11 @@ def _find_explicit_target_section(
                     return right_section
 
     left_article = extract_article_label(left_section["label"])
-    for article_label in extract_article_labels(left_section["text"]):
-        if article_label == left_article:
-            continue
+    article_targets = extract_distinct_target_article_labels(
+        left_section["text"], self_article=left_article
+    )
+    if len(article_targets) == 1:
+        article_label = article_targets[0]
         for right_section in right_sections:
             if extract_article_label(right_section["label"]) == article_label:
                 return right_section
@@ -380,10 +400,7 @@ def _find_explicit_target_section(
             if extract_article_label(right_section["label"]) == left_article:
                 return right_section
 
-    return next(
-        (section for section in right_sections if section["section_type"] == "title"),
-        None,
-    )
+    return None
 
 
 def build_compare_alignment(
@@ -421,11 +438,13 @@ def build_compare_alignment(
         )
         reason = "explicit-citation" if matched_right else None
 
-        if lifecycle_compare and not matched_right:
+        if lifecycle_compare and explicit_links and not matched_right:
             self_article = extract_article_label(left_section["label"])
-            for article_label in extract_article_labels(left_section["text"]):
-                if article_label == self_article:
-                    continue
+            article_targets = extract_distinct_target_article_labels(
+                left_section["text"], self_article=self_article
+            )
+            if len(article_targets) == 1:
+                article_label = article_targets[0]
                 article_candidates = [
                     section
                     for section in right_article_index.get(article_label, [])
@@ -434,7 +453,6 @@ def build_compare_alignment(
                 if article_candidates:
                     matched_right = article_candidates[0]
                     reason = "referenced-article"
-                    break
 
         if allow_heuristic_matches and not matched_right:
             label_candidates = right_label_index.get(

@@ -11,14 +11,14 @@ V-Legal is a document-first Vietnamese legal research prototype combining:
 
 | Layer | Technology |
 |-------|------------|
-| frontend | Netlify proxy |
+| frontend | Netlify proxy at `https://vlegal-frontend.netlify.app` |
 | backend | FastAPI on OCI VM |
 | corpus | SQLite at `/opt/vlegal/data/full_hf.sqlite` |
 | user data | Appwrite TablesDB |
 
 **Corpus note:** the live OCI corpus is rebuilt from Hugging Face into `/opt/vlegal/data/full_hf.sqlite` with a focused economy/finance/industry scope, while tracked laws and research views stay in Appwrite.
 
-**Current live corpus:** `88,962` documents, `11,369` relation links, `636,769` citation links.
+**Live health snapshot:** at the time of this README update, `/health` reports `86,282` documents. Treat this as a deploy-time snapshot rather than a fixed constant.
 
 ## What It Does
 
@@ -31,6 +31,7 @@ V-Legal is a document-first Vietnamese legal research prototype combining:
 - track laws and save research views for repeat monitoring
 - compare two local documents side by side
 - generate conservative grounded briefs from retrieved passages only
+- maintain a vectorless RAG profile using lexical retrieval artifacts instead of embeddings
 
 ## Architecture
 
@@ -77,6 +78,7 @@ flowchart TD
 | `compare.py` | Side-by-side document comparison |
 | `appwrite_client.py` | Tracked laws, research views (Appwrite) |
 | `answering.py` | Grounded brief generation |
+| `vectorless.py` | Derived lexical retrieval profile for vectorless RAG |
 | `provenance.py` | VBPL/VNCP provenance profiles |
 | `tracking.py` | Same-subject update alerts |
 
@@ -86,6 +88,7 @@ flowchart TD
 |--------|---------|
 | `bootstrap_hf_dataset.py` | Import legal corpus from Hugging Face |
 | `bootstrap_hf_focused_corpus.py` | Rebuild the economy/finance/industry-focused corpus |
+| `update_hf_monthly.py` | Incrementally apply monthly dataset updates |
 | `bootstrap_phapdien_taxonomy.py` | Seed taxonomy subjects |
 | `bootstrap_relationship_graph.py` | Build lifecycle relations |
 | `bootstrap_citation_index.py` | Extract and index citations |
@@ -161,14 +164,30 @@ See `docs/FOCUSED_CORPUS_SCOPE.md` for the inclusion and exclusion rules.
 uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
 ```
 
+### Monthly updater
+```bash
+# Focused corpus: rebuild the focused selection, import only changed docs, then refresh relations/citations
+uv run python scripts/update_hf_monthly.py --mode focused
+
+# Full corpus: scan the source stream and import only changed docs
+uv run python scripts/update_hf_monthly.py --mode full
+```
+
+### Incremental bootstrap mode
+```bash
+# Re-run an existing import without rewriting unchanged documents
+uv run python scripts/bootstrap_hf_dataset.py --skip-unchanged
+uv run python scripts/bootstrap_hf_focused_corpus.py --skip-unchanged
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VLEGAL_DATABASE_PATH` | `data/vlegal.sqlite` | SQLite corpus location |
-| `VLEGAL_CORS_ALLOWED_ORIGINS` | `*` | CORS origins |
-| `VLEGAL_SEARCH_PAGE_SIZE` | `20` | Results per page |
-| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `5` | Passages for brief generation |
+| `VLEGAL_CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | CORS origins |
+| `VLEGAL_SEARCH_PAGE_SIZE` | `12` | Results per page |
+| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `6` | Passages for brief generation |
 | `VLEGAL_APPWRITE_ENDPOINT` | - | Appwrite API endpoint |
 | `VLEGAL_APPWRITE_PROJECT_ID` | - | Appwrite project ID |
 | `VLEGAL_APPWRITE_DATABASE_ID` | - | Appwrite database ID |
@@ -205,7 +224,7 @@ After starting the server:
 |----------|---------|
 | `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` | Current Netlify + OCI + Appwrite |
 | `docs/DEPLOYMENT_OCI_VERCEL.md` | OCI backend + Vercel frontend |
-| `docs/DEPLOYMENT.md` | General deployment notes |
+| `docs/DEPLOYMENT.md` | Legacy preview deployment notes (Render / Docker) |
 | `docs/FOCUSED_CORPUS_SCOPE.md` | Focused economy/finance/industry corpus rules |
 | `deploy/oci/MAINTAIN.md` | OCI maintenance tasks |
 | `DESIGN.md` | Visual design system |

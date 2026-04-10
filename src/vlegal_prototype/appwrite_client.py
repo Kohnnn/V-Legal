@@ -100,7 +100,7 @@ def aw_untrack_document(user_id: str, document_id: int) -> None:
         tdb.delete_row(
             database_id=settings.appwrite_database_id,
             table_id=TRACKED_COLLECTION,
-            document_id=d.id,
+            row_id=d.id,
         )
 
 
@@ -122,7 +122,7 @@ def aw_get_research_view(user_id: str, view_id: str) -> dict[str, Any] | None:
         doc = tdb.get_row(
             database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
-            document_id=view_id,
+            row_id=view_id,
         )
         d = _row_to_dict(doc)
         if d.get("user_id") != user_id:
@@ -168,7 +168,7 @@ def aw_delete_research_view(user_id: str, view_id: str) -> bool:
         doc = tdb.get_row(
             database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
-            document_id=view_id,
+            row_id=view_id,
         )
         d = _row_to_dict(doc)
         if d.get("user_id") != user_id:
@@ -176,7 +176,7 @@ def aw_delete_research_view(user_id: str, view_id: str) -> bool:
         tdb.delete_row(
             database_id=settings.appwrite_database_id,
             table_id=RESEARCH_COLLECTION,
-            document_id=view_id,
+            row_id=view_id,
         )
         return True
     except Exception:

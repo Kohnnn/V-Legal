@@ -1,6 +1,18 @@
 # Deployment Guide
 
-This guide covers the safest way to deploy the current V-Legal prototype as a preview app.
+This guide covers the legacy preview deployment routes for the V-Legal prototype.
+
+The current live deployment shape is:
+
+- Netlify proxy frontend
+- OCI-hosted FastAPI backend
+- SQLite corpus on the OCI VM
+- Appwrite TablesDB for tracked laws and research views
+
+Use these docs first for the current setup:
+
+- `DEPLOYMENT_NETLIFY_APPWRITE.md` for Netlify + OCI + Appwrite
+- `DEPLOYMENT_OCI_VERCEL.md` for OCI backend + Vercel frontend
 
 If you plan to run frontend on Vercel and backend on OCI, use the dedicated guide:
 
@@ -11,18 +23,18 @@ The repo is already prepared for:
 - Render free web service
 - Docker-based deployment
 
-The current deployment shape is intentionally conservative:
+The legacy preview shape documented here is intentionally conservative:
 
 - small `500`-document bundle
 - SQLite database built at deploy time
 - no external database required
 - good for demo / preview / internal review
 
-It is not yet a durable production setup for user data.
+It is not a durable production setup for user data.
 
 ## Best Option Right Now
 
-Use Render free for the first public preview.
+For a small demo-only preview, use Render free.
 
 Why:
 
@@ -220,7 +232,7 @@ docker build --build-arg VLEGAL_BOOTSTRAP_LIMIT=500 -t v-legal-prototype .
 
 ## Recommended Deploy Workflow
 
-For now, use this cycle:
+For the legacy Render preview path, use this cycle:
 
 1. build and verify locally
 2. push to GitHub

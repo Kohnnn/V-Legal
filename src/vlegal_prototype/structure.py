@@ -24,6 +24,14 @@ ROMAN_HEADING_PATTERN = re.compile(r"^([IVXLC]+)\.\s+(.+)$", re.IGNORECASE)
 CLAUSE_PATTERN = re.compile(r"^(\d+\.)\s+(.*)$")
 POINT_PATTERN = re.compile(r"^([a-zđ]\))\s+(.*)$", re.IGNORECASE)
 DASH_PATTERN = re.compile(r"^([-–•])\s+(.*)$")
+ANNEX_HEADING_PATTERN = re.compile(
+    r"^(PHỤ LỤC|PHU LUC|QUY TRÌNH|QUY TRINH|QUY CHẾ|QUY CHE|DANH MỤC|DANH MUC|BIỂU MẪU|BIEU MAU|MẪU SỐ|MAU SO)\b",
+    re.IGNORECASE,
+)
+ENDMATTER_PATTERN = re.compile(
+    r"^(Nơi nhận|Noi nhan|KT\.|TM\.|TL\.|Q\.)\b",
+    re.IGNORECASE,
+)
 LEGAL_TYPE_PATTERN = re.compile(
     r"^(LUẬT|BỘ LUẬT|PHÁP LỆNH|LỆNH|NGHỊ QUYẾT|NGHỊ ĐỊNH|QUYẾT ĐỊNH|CHỈ THỊ|THÔNG TƯ(?: LIÊN TỊCH)?|THÔNG BÁO|THÔNG TRI|HƯỚNG DẪN|KẾ HOẠCH|KẾT LUẬN|QUY CHẾ(?: PHỐI HỢP)?|BÁO CÁO)$",
     re.IGNORECASE,
@@ -41,6 +49,7 @@ MOTTO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 STAR_RUN_PATTERN = re.compile(r"\*{3,}")
+TABLE_SEPARATOR_PATTERN = re.compile(r"^[|:\-\s]+$")
 DISPLAY_HEADING_BREAK_PATTERN = re.compile(
     r"\s+(?=(PHẦN\s+[IVXLC0-9A-Za-z\-./]+|Phần\s+[IVXLC0-9A-Za-z\-./]+|CHƯƠNG\s+[IVXLC0-9A-Za-z\-./]+|Chương\s+[IVXLC0-9A-Za-z\-./]+|MỤC\s+[IVXLC0-9A-Za-z\-./]+|Mục\s+[IVXLC0-9A-Za-z\-./]+|Điều\s+\d+[A-Za-z0-9\-./]*[.:]?|RA\s+SẮC\s+LỆNH:|QUYẾT\s+ĐỊNH:|NGHỊ\s+QUYẾT:|THÔNG\s+TƯ:))"
 )
@@ -288,6 +297,16 @@ def is_promulgator_line(value: str) -> bool:
     )
 
 
+def is_endmatter_paragraph(value: str) -> bool:
+    cleaned = clean_display_line(value)
+    return bool(ENDMATTER_PATTERN.match(cleaned))
+
+
+def is_annex_heading(value: str) -> bool:
+    cleaned = clean_display_line(value)
+    return bool(ANNEX_HEADING_PATTERN.match(cleaned)) and len(cleaned.split()) >= 4
+
+
 def split_preamble_clauses(value: str) -> list[str]:
     collapsed = clean_display_line(value)
     pieces = re.split(
@@ -338,6 +357,58 @@ def render_lines_html(value: str) -> str:
         if clean_display_line(line)
     ]
     return "<br>".join(escape(line) for line in lines)
+
+
+def parse_table_block(value: str) -> tuple[list[str], list[list[str]]] | None:
+    raw_lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if len(raw_lines) < 2:
+        return None
+    if not all(line.count("|") >= 2 for line in raw_lines[:2]):
+        return None
+
+    rows: list[list[str]] = []
+    for line in raw_lines:
+        if line.count("|") < 2:
+            return None
+        cells = [cell.strip() for cell in line.split("|")]
+        while cells and not cells[0]:
+            cells.pop(0)
+        while cells and not cells[-1]:
+            cells.pop()
+        if len(cells) < 2:
+            continue
+        if all(TABLE_SEPARATOR_PATTERN.match(cell or "") for cell in cells):
+            continue
+        rows.append(cells)
+
+    if len(rows) < 2:
+        return None
+
+    header = rows[0]
+    body = [
+        row for row in rows[1:] if len(row) == len(header) and any(cell for cell in row)
+    ]
+    if not body:
+        return None
+    return header, body
+
+
+def render_table_block(value: str) -> str | None:
+    parsed = parse_table_block(value)
+    if not parsed:
+        return None
+    header, body = parsed
+    html_parts = ['<div class="law-table-wrap"><table class="law-table"><thead><tr>']
+    for cell in header:
+        html_parts.append(f"<th>{escape(clean_display_line(cell))}</th>")
+    html_parts.append("</tr></thead><tbody>")
+    for row in body:
+        html_parts.append("<tr>")
+        for cell in row:
+            html_parts.append(f"<td>{escape(clean_display_line(cell))}</td>")
+        html_parts.append("</tr>")
+    html_parts.append("</tbody></table></div>")
+    return "".join(html_parts)
 
 
 def render_body_paragraph(value: str, *, variant: str = "body") -> str:
@@ -706,6 +777,56 @@ def build_document_display_html(
                 f'<h3 class="law-heading-block__title">{escape(paragraph)}</h3>'
                 "</section>"
             )
+            body_index += 1
+            continue
+
+        if current_article_open and is_endmatter_paragraph(paragraph):
+            html_parts.append("</article>")
+            current_article_open = False
+            html_parts.append(
+                f'<div class="law-document__endmatter">{render_lines_html(raw_paragraph)}</div>'
+            )
+            body_index += 1
+            continue
+
+        if is_annex_heading(paragraph):
+            if current_article_open:
+                html_parts.append("</article>")
+                current_article_open = False
+            subtitle = None
+            if body_index + 1 < len(body_paragraphs):
+                next_paragraph = clean_display_line(body_paragraphs[body_index + 1])
+                next_first_line = clean_display_line(
+                    body_paragraphs[body_index + 1].splitlines()[0]
+                )
+                if (
+                    next_paragraph
+                    and not detect_section(next_first_line)
+                    and not is_annex_heading(next_paragraph)
+                    and not is_endmatter_paragraph(next_paragraph)
+                    and not parse_table_block(body_paragraphs[body_index + 1])
+                    and len(next_paragraph.split()) >= 4
+                    and len(next_paragraph) <= 240
+                ):
+                    subtitle = next_paragraph
+                    body_index += 1
+            html_parts.append(
+                '<section class="law-heading-block law-heading-block--annex">'
+            )
+            html_parts.append(
+                f'<p class="law-heading-block__label">{escape(paragraph)}</p>'
+            )
+            if subtitle:
+                html_parts.append(
+                    f'<h2 class="law-heading-block__title">{escape(subtitle)}</h2>'
+                )
+            html_parts.append("</section>")
+            body_index += 1
+            continue
+
+        table_html = render_table_block(raw_paragraph)
+        if table_html:
+            html_parts.append(table_html)
             body_index += 1
             continue
 

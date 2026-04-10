@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from .settings import get_settings
+from .vectorless import build_document_retrieval_profile
 
 
 SCHEMA = """
@@ -40,6 +41,20 @@ CREATE TABLE IF NOT EXISTS passages (
     text TEXT NOT NULL,
     UNIQUE(document_id, ordinal)
 );
+
+CREATE TABLE IF NOT EXISTS document_retrieval_profiles (
+    document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+    heading_index TEXT NOT NULL DEFAULT '',
+    article_index TEXT NOT NULL DEFAULT '',
+    citation_index TEXT NOT NULL DEFAULT '',
+    keyword_index TEXT NOT NULL DEFAULT '',
+    chunk_count INTEGER NOT NULL DEFAULT 0,
+    source_hash TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_retrieval_profiles_source_hash
+    ON document_retrieval_profiles(source_hash);
 
 CREATE TABLE IF NOT EXISTS tracked_documents (
     document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
@@ -139,6 +154,22 @@ CREATE TABLE IF NOT EXISTS research_views (
 CREATE INDEX IF NOT EXISTS idx_research_views_created_at
     ON research_views(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS ingest_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dataset_name TEXT NOT NULL,
+    dataset_revision TEXT,
+    selection_mode TEXT NOT NULL DEFAULT 'full',
+    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT,
+    scanned_count INTEGER NOT NULL DEFAULT 0,
+    imported_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_runs_started_at
+    ON ingest_runs(started_at DESC);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
     title,
     plain_content,
@@ -153,6 +184,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS passages_fts USING fts5(
     text,
     content = 'passages',
     content_rowid = 'id',
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS document_retrieval_fts USING fts5(
+    heading_index,
+    article_index,
+    citation_index,
+    keyword_index,
+    content = 'document_retrieval_profiles',
+    content_rowid = 'document_id',
     tokenize = 'unicode61 remove_diacritics 2'
 );
 
@@ -188,6 +229,23 @@ CREATE TRIGGER IF NOT EXISTS passages_au AFTER UPDATE ON passages BEGIN
     VALUES ('delete', old.id, COALESCE(old.heading, ''), old.text);
     INSERT INTO passages_fts(rowid, heading, text)
     VALUES (new.id, COALESCE(new.heading, ''), new.text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS document_retrieval_profiles_ai AFTER INSERT ON document_retrieval_profiles BEGIN
+    INSERT INTO document_retrieval_fts(rowid, heading_index, article_index, citation_index, keyword_index)
+    VALUES (new.document_id, new.heading_index, new.article_index, new.citation_index, new.keyword_index);
+END;
+
+CREATE TRIGGER IF NOT EXISTS document_retrieval_profiles_ad AFTER DELETE ON document_retrieval_profiles BEGIN
+    INSERT INTO document_retrieval_fts(document_retrieval_fts, rowid, heading_index, article_index, citation_index, keyword_index)
+    VALUES ('delete', old.document_id, old.heading_index, old.article_index, old.citation_index, old.keyword_index);
+END;
+
+CREATE TRIGGER IF NOT EXISTS document_retrieval_profiles_au AFTER UPDATE ON document_retrieval_profiles BEGIN
+    INSERT INTO document_retrieval_fts(document_retrieval_fts, rowid, heading_index, article_index, citation_index, keyword_index)
+    VALUES ('delete', old.document_id, old.heading_index, old.article_index, old.citation_index, old.keyword_index);
+    INSERT INTO document_retrieval_fts(rowid, heading_index, article_index, citation_index, keyword_index)
+    VALUES (new.document_id, new.heading_index, new.article_index, new.citation_index, new.keyword_index);
 END;
 """
 
@@ -229,6 +287,7 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         required_tables = {
             "documents",
             "passages",
+            "document_retrieval_profiles",
             "tracked_documents",
             "taxonomy_subjects",
             "document_subjects",
@@ -237,6 +296,7 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             "citation_mentions",
             "citation_links",
             "research_views",
+            "ingest_runs",
         }
         existing_tables = {
             row[0]
@@ -254,7 +314,76 @@ def reset_database(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
-def import_documents(connection: sqlite3.Connection, records: Iterable[dict]) -> None:
+def get_document_source_hashes(
+    connection: sqlite3.Connection, document_ids: list[int]
+) -> dict[int, str]:
+    if not document_ids:
+        return {}
+    placeholders = ", ".join("?" for _ in document_ids)
+    rows = connection.execute(
+        f"""
+        SELECT document_id, source_hash
+        FROM document_retrieval_profiles
+        WHERE document_id IN ({placeholders})
+        """,
+        document_ids,
+    ).fetchall()
+    return {int(row["document_id"]): row["source_hash"] for row in rows}
+
+
+def start_ingest_run(
+    connection: sqlite3.Connection,
+    *,
+    dataset_name: str,
+    selection_mode: str,
+    dataset_revision: str = "",
+    notes: str = "",
+) -> int:
+    with connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO ingest_runs (dataset_name, dataset_revision, selection_mode, notes)
+            VALUES (?, ?, ?, ?)
+            """,
+            (dataset_name, dataset_revision, selection_mode, notes or None),
+        )
+    return int(cursor.lastrowid)
+
+
+def finish_ingest_run(
+    connection: sqlite3.Connection,
+    run_id: int,
+    *,
+    scanned_count: int,
+    imported_count: int,
+    skipped_count: int,
+    notes: str = "",
+) -> None:
+    with connection:
+        connection.execute(
+            """
+            UPDATE ingest_runs
+            SET finished_at = CURRENT_TIMESTAMP,
+                scanned_count = ?,
+                imported_count = ?,
+                skipped_count = ?,
+                notes = ?
+            WHERE id = ?
+            """,
+            (scanned_count, imported_count, skipped_count, notes or None, run_id),
+        )
+
+
+def import_documents(
+    connection: sqlite3.Connection,
+    records: Iterable[dict],
+    *,
+    skip_unchanged: bool = False,
+) -> dict[str, int]:
+    records_list = list(records)
+    if not records_list:
+        return {"received_count": 0, "imported_count": 0, "skipped_count": 0}
+
     document_sql = """
     INSERT INTO documents (
         id,
@@ -294,8 +423,45 @@ def import_documents(connection: sqlite3.Connection, records: Iterable[dict]) ->
     VALUES (?, ?, ?, ?)
     """
 
+    retrieval_sql = """
+    INSERT INTO document_retrieval_profiles (
+        document_id,
+        heading_index,
+        article_index,
+        citation_index,
+        keyword_index,
+        chunk_count,
+        source_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(document_id) DO UPDATE SET
+        heading_index = excluded.heading_index,
+        article_index = excluded.article_index,
+        citation_index = excluded.citation_index,
+        keyword_index = excluded.keyword_index,
+        chunk_count = excluded.chunk_count,
+        source_hash = excluded.source_hash,
+        updated_at = CURRENT_TIMESTAMP
+    """
+
+    profiles = {
+        record["id"]: build_document_retrieval_profile(record)
+        for record in records_list
+    }
+    records_to_import = records_list
+    if skip_unchanged:
+        existing_hashes = get_document_source_hashes(
+            connection, [record["id"] for record in records_list]
+        )
+        records_to_import = [
+            record
+            for record in records_list
+            if profiles[record["id"]]["source_hash"]
+            != existing_hashes.get(record["id"])
+        ]
+
     with connection:
-        for record in records:
+        for record in records_to_import:
+            profile = profiles[record["id"]]
             connection.execute(
                 document_sql,
                 (
@@ -330,6 +496,24 @@ def import_documents(connection: sqlite3.Connection, records: Iterable[dict]) ->
                     for passage in record["passages"]
                 ],
             )
+            connection.execute(
+                retrieval_sql,
+                (
+                    profile["document_id"],
+                    profile["heading_index"],
+                    profile["article_index"],
+                    profile["citation_index"],
+                    profile["keyword_index"],
+                    profile["chunk_count"],
+                    profile["source_hash"],
+                ),
+            )
+
+    return {
+        "received_count": len(records_list),
+        "imported_count": len(records_to_import),
+        "skipped_count": len(records_list) - len(records_to_import),
+    }
 
 
 def get_stats(connection: sqlite3.Connection) -> dict:
