@@ -70,6 +70,21 @@ def extract_distinct_target_article_labels(
     return distinct
 
 
+def describe_reason_label(reason: str) -> str:
+    labels = {
+        "explicit-citation": "explicit citation",
+        "referenced-article": "single article reference",
+        "same-label": "same label",
+        "same-article": "same article",
+        "similar-content": "similar content",
+        "left-only": "no reliable match",
+        "right-only": "unmatched on right",
+        "multi-target-instruction": "multi-target instruction",
+        "unconfirmed-instruction": "unconfirmed instruction",
+    }
+    return labels.get(reason, reason.replace("-", " "))
+
+
 def split_clause_units(text: str, max_items: int = 12) -> list[str]:
     collapsed = text.replace("\r\n", "\n").replace("\r", "\n")
     paragraphs = [
@@ -403,6 +418,61 @@ def _find_explicit_target_section(
     return None
 
 
+def build_unmatched_change(
+    left_section: dict, *, lifecycle_compare: bool
+) -> tuple[str, dict]:
+    instruction_type = detect_instruction_type(left_section["text"])
+    self_article = extract_article_label(left_section["label"])
+    article_targets = extract_distinct_target_article_labels(
+        left_section["text"], self_article=self_article
+    )
+
+    if lifecycle_compare and instruction_type in {"amendment", "repeal", "guidance"}:
+        if len(article_targets) > 1:
+            return (
+                "multi-target-instruction",
+                {
+                    "change_label": "unmatched instruction",
+                    "summary": (
+                        "This instruction-style section references multiple target articles "
+                        "in the comparison document, so it was left unmatched to avoid a false alignment."
+                    ),
+                    "details": {
+                        "target_articles": article_targets[:4],
+                        "instruction_clauses": split_clause_units(
+                            left_section["text"], max_items=3
+                        ),
+                    },
+                },
+            )
+
+        return (
+            "unconfirmed-instruction",
+            {
+                "change_label": "unmatched instruction",
+                "summary": (
+                    "This instruction-style section was left unmatched because no single target "
+                    "section could be confirmed in the comparison document."
+                ),
+                "details": {
+                    "target_articles": article_targets[:4],
+                    "instruction_clauses": split_clause_units(
+                        left_section["text"], max_items=3
+                    ),
+                },
+            },
+        )
+
+    return (
+        "left-only",
+        {
+            "change_label": "unmatched",
+            "summary": "No reliable target section was aligned in the comparison document.",
+            "details": {},
+        },
+    )
+
+
 def build_compare_alignment(
     left_sections: list[dict],
     right_sections: list[dict],
@@ -515,6 +585,7 @@ def build_compare_alignment(
                 {
                     "kind": "matched",
                     "reason": reason,
+                    "reason_label": describe_reason_label(reason or "matched"),
                     "left": {
                         **left_section,
                         "summary": summarize_text(left_section["text"]),
@@ -528,21 +599,22 @@ def build_compare_alignment(
                 }
             )
         else:
+            left_only_reason, left_only_change = build_unmatched_change(
+                left_section,
+                lifecycle_compare=lifecycle_compare,
+            )
             rows.append(
                 {
                     "kind": "left-only",
-                    "reason": "left-only",
+                    "reason": left_only_reason,
+                    "reason_label": describe_reason_label(left_only_reason),
                     "left": {
                         **left_section,
                         "summary": summarize_text(left_section["text"]),
                     },
                     "right": None,
                     "score": 0.0,
-                    "change": {
-                        "change_label": "unmatched",
-                        "summary": "No reliable target section was aligned in the comparison document.",
-                        "details": {},
-                    },
+                    "change": left_only_change,
                 }
             )
 
@@ -550,6 +622,7 @@ def build_compare_alignment(
         {
             "kind": "right-only",
             "reason": "right-only",
+            "reason_label": describe_reason_label("right-only"),
             "left": None,
             "right": {
                 **section,

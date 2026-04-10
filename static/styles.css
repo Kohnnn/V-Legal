@@ -3016,9 +3016,70 @@ select:focus {
 }
 
 .law-document__endmatter {
+  display: grid;
+  gap: 8px;
   color: var(--ink-soft);
   font-size: 0.92rem;
   line-height: 1.7;
+}
+
+.law-document__endmatter-line,
+.law-document__signature-line {
+  margin: 0;
+}
+
+.law-document__signature-block {
+  display: grid;
+  gap: 2px;
+  justify-content: end;
+  text-align: right;
+  color: var(--ink);
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.law-document__signature-name {
+  margin: 2px 0 0;
+  font-family: "Noto Serif", serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.law-annex-meta {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface-low);
+}
+
+.law-annex-meta__row {
+  display: grid;
+  gap: 4px;
+}
+
+.law-annex-meta__label,
+.law-annex-meta__value {
+  margin: 0;
+}
+
+.law-annex-meta__label {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.law-annex-meta__value {
+  font-family: "Noto Serif", serif;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .law-table-wrap {
