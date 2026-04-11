@@ -117,12 +117,33 @@ DOC_NUMBER_IN_TEXT_PATTERN = re.compile(
     r"\b(\d{1,4}[a-z]?(?:/\d{2,4})?/[A-Za-z0-9\u00c0-\u1ef9\-]+(?:/[A-Za-z0-9\u00c0-\u1ef9\-]+)*)\b"
 )
 
+FALSE_SECTION_HEADING_PHRASES = (
+    "ban hanh kem theo",
+    "theo quyet dinh so",
+    "co hieu luc",
+    "chiu trach nhiem",
+)
+
 
 def slugify_anchor(value: str) -> str:
     anchor = value.lower().strip()
     anchor = re.sub(r"[^0-9a-z\u00c0-\u1ef9\s-]", "", anchor)
     anchor = re.sub(r"\s+", "-", anchor)
     return anchor or "section"
+
+
+def looks_like_structural_heading(line: str) -> bool:
+    cleaned = clean_display_line(line)
+    normalized = normalize_ascii(cleaned).lower()
+    if any(phrase in normalized for phrase in FALSE_SECTION_HEADING_PHRASES):
+        return False
+    if ";" in cleaned:
+        return False
+    if cleaned.endswith(".") and not is_uppercaseish(cleaned):
+        return False
+    if len(cleaned.split()) > 18 and not is_uppercaseish(cleaned):
+        return False
+    return True
 
 
 def detect_section(raw_line: str) -> tuple[str, str] | None:
@@ -139,15 +160,15 @@ def detect_section(raw_line: str) -> tuple[str, str] | None:
         return ("article", article_match.group(1).strip())
 
     chapter_match = CHAPTER_PATTERN.match(line)
-    if chapter_match:
+    if chapter_match and looks_like_structural_heading(line):
         return ("chapter", chapter_match.group(1).strip())
 
     part_match = PART_PATTERN.match(line)
-    if part_match:
+    if part_match and looks_like_structural_heading(line):
         return ("part", part_match.group(1).strip())
 
     section_match = SECTION_PATTERN.match(line)
-    if section_match:
+    if section_match and looks_like_structural_heading(line):
         return ("section", section_match.group(1).strip())
 
     return None

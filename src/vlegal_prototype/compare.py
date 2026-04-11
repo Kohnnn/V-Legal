@@ -132,7 +132,12 @@ def detect_instruction_type(text: str) -> str:
         return "amendment"
     if any(
         keyword in normalized
-        for keyword in ("huong dan", "quy dinh chi tiet", "thi hanh")
+        for keyword in (
+            "huong dan",
+            "quy dinh chi tiet",
+            "co hieu luc thi hanh",
+            "to chuc thuc hien",
+        )
     ):
         return "guidance"
     return "reference"
