@@ -31,13 +31,25 @@ function apiFetch(url, options = {}) {
   });
 }
 
+function escapeHtmlValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function renderBrief(payload) {
   const findings = (payload.findings || [])
     .map(
       (item) => `
         <li>
-          <p>${item.text}</p>
-          <small>${item.citation.title} / ${item.citation.heading}</small>
+          <p>${escapeHtmlValue(item.text)}</p>
+          <small>${escapeHtmlValue(item.citation && item.citation.title)} / ${escapeHtmlValue(item.citation && item.citation.heading)}</small>
         </li>
       `
     )
@@ -47,8 +59,8 @@ function renderBrief(payload) {
     .map(
       (item) => `
         <li>
-          <strong>${item.title}</strong>
-          <small>${item.document_number || item.legal_type || "Document"}</small>
+          <strong>${escapeHtmlValue(item.title)}</strong>
+          <small>${escapeHtmlValue(item.document_number || item.legal_type || "Document")}</small>
         </li>
       `
     )
@@ -56,11 +68,11 @@ function renderBrief(payload) {
 
   return `
     <div class="brief-card">
-      <h3>${payload.headline}</h3>
-      <p>${payload.summary}</p>
+      <h3>${escapeHtmlValue(payload.headline)}</h3>
+      <p>${escapeHtmlValue(payload.summary)}</p>
       ${findings ? `<div class="brief-section"><strong>Key findings</strong><ul>${findings}</ul></div>` : ""}
       ${sources ? `<div class="brief-section"><strong>Source documents</strong><ul>${sources}</ul></div>` : ""}
-      <p class="brief-disclaimer">${payload.disclaimer}</p>
+      <p class="brief-disclaimer">${escapeHtmlValue(payload.disclaimer)}</p>
     </div>
   `;
 }
@@ -127,6 +139,10 @@ async function handleTrackButtonClick(event) {
     return;
   }
 
+  const activeClass = button.dataset.activeClass || "is-active";
+  const labelTrack = button.dataset.labelTrack || "Track law";
+  const labelTracked = button.dataset.labelTracked || "Tracked";
+
   button.disabled = true;
   button.textContent = tracked ? "Removing..." : "Tracking...";
 
@@ -143,10 +159,16 @@ async function handleTrackButtonClick(event) {
       throw new Error("Track request failed");
     }
 
-    window.location.reload();
+    // Optimistic in-place update: flip state without a full page reload so the
+    // reader keeps its scroll position and any pinned citation card.
+    const nowTracked = !tracked;
+    button.dataset.tracked = nowTracked ? "true" : "false";
+    button.classList.toggle(activeClass, nowTracked);
+    button.textContent = nowTracked ? labelTracked : labelTrack;
+    button.disabled = false;
   } catch (error) {
     button.disabled = false;
-    button.textContent = tracked ? "Tracked" : "Track law";
+    button.textContent = tracked ? labelTracked : labelTrack;
   }
 }
 
@@ -472,6 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let pinnedLink = null;
     let pinnedPayload = null;
     let hideTimer = 0;
+    let openTimer = 0;
 
     function isMobilePreview() {
       return window.matchMedia("(max-width: 900px)").matches;
@@ -481,6 +504,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (hideTimer) {
         window.clearTimeout(hideTimer);
         hideTimer = 0;
+      }
+    }
+
+    function cancelOpen() {
+      if (openTimer) {
+        window.clearTimeout(openTimer);
+        openTimer = 0;
       }
     }
 
@@ -624,6 +654,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function closePreview() {
       cancelHide();
+      cancelOpen();
       activeLink = null;
       activePayload = null;
       preview.hidden = true;
@@ -642,6 +673,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function openPreview(link) {
       cancelHide();
+      cancelOpen();
       activeLink = link;
       activePayload = null;
       preview.hidden = false;
@@ -675,15 +707,23 @@ document.addEventListener("DOMContentLoaded", () => {
     links.forEach((link) => {
       link.addEventListener("mouseenter", () => {
         if (!isMobilePreview()) {
-          openPreview(link);
+          // Debounce: skating the cursor across a dense article should not fire
+          // a preview request for every citation it passes over.
+          cancelOpen();
+          openTimer = window.setTimeout(() => {
+            openTimer = 0;
+            openPreview(link);
+          }, 140);
         }
       });
       link.addEventListener("mouseleave", () => {
         if (!isMobilePreview()) {
+          cancelOpen();
           scheduleHide();
         }
       });
       link.addEventListener("focus", () => {
+        cancelOpen();
         openPreview(link);
       });
       link.addEventListener("blur", () => {
@@ -800,4 +840,152 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .querySelectorAll("[data-citation-preview-root]")
     .forEach((root) => initCitationPreview(root));
+
+  initDocTabScrollSpy();
+  initDocOutlineTree();
+  initArticleAnchorLinks();
 });
+
+function initDocTabScrollSpy() {
+  const nav = document.querySelector("[data-doc-tabs]");
+  if (!nav) {
+    return;
+  }
+  const tabs = Array.from(nav.querySelectorAll("[data-doc-tab]"));
+  const entries = tabs
+    .map((tab) => ({
+      tab,
+      section: document.getElementById(tab.dataset.docTab),
+    }))
+    .filter((entry) => entry.section);
+  if (!entries.length) {
+    return;
+  }
+
+  function setActive(tab) {
+    tabs.forEach((item) =>
+      item.classList.toggle("doc-tab--active", item === tab),
+    );
+  }
+
+  // Clicking a tab should immediately reflect the active state.
+  entries.forEach((entry) => {
+    entry.tab.addEventListener("click", () => setActive(entry.tab));
+  });
+
+  if (!("IntersectionObserver" in window)) {
+    return;
+  }
+
+  const visible = new Set();
+  const observer = new IntersectionObserver(
+    (observed) => {
+      observed.forEach((item) => {
+        if (item.isIntersecting) {
+          visible.add(item.target);
+        } else {
+          visible.delete(item.target);
+        }
+      });
+      // Activate the tab for the topmost section currently in view.
+      const topEntry = entries
+        .filter((entry) => visible.has(entry.section))
+        .sort(
+          (a, b) =>
+            a.section.getBoundingClientRect().top -
+            b.section.getBoundingClientRect().top,
+        )[0];
+      if (topEntry) {
+        setActive(topEntry.tab);
+      }
+    },
+    { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
+  );
+  entries.forEach((entry) => observer.observe(entry.section));
+}
+
+// Collapsible nested outline tree. Branch rows (depth 1-2) toggle the
+// visibility of their deeper descendants until the next branch at the same or
+// shallower depth.
+function initDocOutlineTree() {
+  const tree = document.querySelector("[data-doc-outline]");
+  if (!tree) {
+    return;
+  }
+  const items = Array.from(tree.querySelectorAll(".doc-outline-item"));
+
+  function depthOf(el) {
+    return Number(el.dataset.outlineDepth || "4");
+  }
+
+  function descendantsOf(index) {
+    const baseDepth = depthOf(items[index]);
+    const result = [];
+    for (let i = index + 1; i < items.length; i += 1) {
+      if (depthOf(items[i]) <= baseDepth) {
+        break;
+      }
+      result.push(items[i]);
+    }
+    return result;
+  }
+
+  items.forEach((item, index) => {
+    if (!item.hasAttribute("data-outline-branch")) {
+      return;
+    }
+    item.setAttribute("aria-expanded", "true");
+    item.addEventListener("click", (event) => {
+      // Let cmd/ctrl-click and middle-click follow the anchor normally.
+      if (event.metaKey || event.ctrlKey) {
+        return;
+      }
+      event.preventDefault();
+      const expanded = item.getAttribute("aria-expanded") !== "false";
+      item.setAttribute("aria-expanded", expanded ? "false" : "true");
+      descendantsOf(index).forEach((child) => {
+        if (expanded) {
+          child.setAttribute("data-outline-collapsed", "");
+        } else {
+          child.removeAttribute("data-outline-collapsed");
+          if (child.hasAttribute("data-outline-branch")) {
+            child.setAttribute("aria-expanded", "true");
+          }
+        }
+      });
+    });
+  });
+}
+
+// Per-article "copy link" affordance. Clicking the # copies a deep link to the
+// article anchor and shows a brief confirmation.
+function initArticleAnchorLinks() {
+  const links = Array.from(document.querySelectorAll("[data-article-anchor]"));
+  if (!links.length) {
+    return;
+  }
+  links.forEach((link) => {
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const anchor = link.dataset.articleAnchor;
+      const url = `${window.location.origin}${window.location.pathname}#${anchor}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        }
+      } catch (error) {
+        /* clipboard may be unavailable; still update the hash below */
+      }
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", `#${anchor}`);
+      }
+      const original = link.textContent;
+      link.textContent = "Đã sao chép";
+      link.classList.add("doc-article-anchor-link--copied");
+      window.setTimeout(() => {
+        link.textContent = original;
+        link.classList.remove("doc-article-anchor-link--copied");
+      }, 1400);
+    });
+  });
+}

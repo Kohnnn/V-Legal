@@ -285,6 +285,70 @@ def prepare_parquet_record(metadata: dict, content: dict) -> dict:
     }
 
 
+def prepare_parquet_metadata_only_record(metadata: dict) -> dict:
+    legal_sectors = " | ".join(
+        value.strip()
+        for value in [metadata.get("nganh"), metadata.get("linh_vuc")]
+        if value and str(value).strip()
+    )
+    signers = " | ".join(
+        value.strip()
+        for value in [metadata.get("chuc_danh"), metadata.get("nguoi_ky")]
+        if value and str(value).strip()
+    )
+    issuance_date, year = normalize_issuance_date(
+        metadata.get("ngay_ban_hanh"),
+        metadata.get("so_ky_hieu"),
+        metadata.get("title"),
+    )
+
+    sections: list[str] = []
+    if metadata.get("so_ky_hieu"):
+        sections.append(f"Số ký hiệu: {metadata['so_ky_hieu']}")
+    if issuance_date:
+        sections.append(f"Ngày ban hành: {issuance_date}")
+    if metadata.get("ngay_co_hieu_luc"):
+        sections.append(f"Ngày có hiệu lực: {metadata['ngay_co_hieu_luc']}")
+    if metadata.get("ngay_het_hieu_luc"):
+        sections.append(f"Ngày hết hiệu lực: {metadata['ngay_het_hieu_luc']}")
+    if metadata.get("loai_van_ban"):
+        sections.append(f"Loại văn bản: {metadata['loai_van_ban']}")
+    if metadata.get("co_quan_ban_hanh"):
+        sections.append(f"Cơ quan ban hành: {metadata['co_quan_ban_hanh']}")
+    if metadata.get("nguon_thu_thap"):
+        sections.append(f"Nguồn thu thập: {metadata['nguon_thu_thap']}")
+    if metadata.get("tinh_trang_hieu_luc"):
+        sections.append(f"Tình trạng hiệu lực: {metadata['tinh_trang_hieu_luc']}")
+    if metadata.get("pham_vi"):
+        sections.append(f"Phạm vi: {metadata['pham_vi']}")
+    if metadata.get("thong_tin_ap_dung"):
+        sections.append(f"Thông tin áp dụng: {metadata['thong_tin_ap_dung']}")
+
+    sections.append(
+        "Ghi chú: Hồ sơ hiện mới có metadata từ nguồn HF/VBPL trong local cache; chưa có HTML toàn văn trong bộ dữ liệu cục bộ này."
+    )
+    content = "\n\n".join(sections).strip()
+    plain_content = normalize_text(content)
+
+    return {
+        "id": int(metadata["id"]),
+        "document_number": metadata.get("so_ky_hieu") or "",
+        "title": metadata.get("title") or f"Document {metadata['id']}",
+        "url": "",
+        "legal_type": metadata.get("loai_van_ban") or "",
+        "legal_sectors": legal_sectors,
+        "issuing_authority": metadata.get("co_quan_ban_hanh") or "",
+        "issuance_date": issuance_date,
+        "signers": signers,
+        "content": content,
+        "plain_content": plain_content,
+        "excerpt": build_excerpt(plain_content),
+        "year": year,
+        "source": metadata.get("nguon_thu_thap") or get_settings().dataset_name,
+        "passages": split_into_passages(content),
+    }
+
+
 def iter_hf_parquet_batches(
     filename: str,
     *,
@@ -321,11 +385,11 @@ def iter_hf_parquet_batches(
 
 
 def get_hf_content_cache_path() -> Path:
-    return get_settings().database_path.parent / "hf_content_cache.sqlite"
+    return BASE_DIR / "data" / "hf_content_cache.sqlite"
 
 
 def get_hf_cache_dir() -> Path:
-    cache_dir = get_settings().database_path.parent / "hf_cache"
+    cache_dir = BASE_DIR / "data" / "hf_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
@@ -410,6 +474,13 @@ def load_content_batch(
 def stream_hf_parquet_records(
     limit: int | None = None, skip: int = 0
 ) -> Iterable[dict]:
+    for item in stream_hf_parquet_source_records(limit=limit, skip=skip):
+        yield item["record"]
+
+
+def stream_hf_parquet_source_records(
+    limit: int | None = None, skip: int = 0
+) -> Iterable[dict]:
     cache_path = ensure_hf_content_cache()
     content_connection = sqlite3.connect(cache_path)
     yielded = 0
@@ -431,19 +502,69 @@ def stream_hf_parquet_records(
                     continue
                 if limit is not None and yielded >= limit:
                     return
-                yield prepare_parquet_record(
-                    metadata,
-                    {"id": document_id, "content_html": content_html},
-                )
+                content_payload = {"id": document_id, "content_html": content_html}
+                yield {
+                    "metadata": metadata,
+                    "content": content_payload,
+                    "record": prepare_parquet_record(metadata, content_payload),
+                }
                 yielded += 1
     finally:
         content_connection.close()
 
 
+def stream_hf_parquet_source_records_by_ids(
+    document_ids: list[int],
+) -> Iterable[dict]:
+    remaining = {int(item) for item in document_ids}
+    if not remaining:
+        return
+
+    cache_path = ensure_hf_content_cache()
+    content_connection = sqlite3.connect(cache_path)
+    try:
+        for metadata_batch in iter_hf_parquet_batches(
+            "data/metadata.parquet",
+            batch_size=256,
+        ):
+            candidate_metadata = [
+                item for item in metadata_batch if int(item["id"]) in remaining
+            ]
+            if not candidate_metadata:
+                continue
+            content_lookup = load_content_batch(
+                content_connection,
+                [int(item["id"]) for item in candidate_metadata],
+            )
+            for metadata in candidate_metadata:
+                document_id = int(metadata["id"])
+                content_html = content_lookup.get(document_id)
+                if not content_html:
+                    continue
+                yield {
+                    "metadata": metadata,
+                    "content": {"id": document_id, "content_html": content_html},
+                    "record": prepare_parquet_record(
+                        metadata,
+                        {"id": document_id, "content_html": content_html},
+                    ),
+                }
+                remaining.discard(document_id)
+                if not remaining:
+                    return
+    finally:
+        content_connection.close()
+
+
 def stream_hf_records(limit: int | None = None, skip: int = 0) -> Iterable[dict]:
+    for item in stream_hf_source_records(limit=limit, skip=skip):
+        yield item["record"]
+
+
+def stream_hf_source_records(limit: int | None = None, skip: int = 0) -> Iterable[dict]:
     settings = get_settings()
     if settings.dataset_name == "th1nhng0/vietnamese-legal-documents":
-        yield from stream_hf_parquet_records(limit=limit, skip=skip)
+        yield from stream_hf_parquet_source_records(limit=limit, skip=skip)
         return
 
     dataset_kwargs = {
@@ -476,6 +597,19 @@ def stream_hf_records(limit: int | None = None, skip: int = 0) -> Iterable[dict]
             raise RuntimeError(
                 f"Dataset stream mismatch: metadata id {metadata['id']} != content id {content['id']}"
             )
-        yield prepare_record(metadata, content)
+        yield {
+            "metadata": metadata,
+            "content": content,
+            "record": prepare_record(metadata, content),
+        }
         if limit is not None and index >= limit:
             break
+
+
+def stream_hf_source_records_by_ids(document_ids: list[int]) -> Iterable[dict]:
+    settings = get_settings()
+    if settings.dataset_name != "th1nhng0/vietnamese-legal-documents":
+        raise RuntimeError(
+            "Targeted ID export is currently implemented for the parquet-backed HF dataset only."
+        )
+    yield from stream_hf_parquet_source_records_by_ids(document_ids)

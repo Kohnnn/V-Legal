@@ -13,411 +13,301 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: uvicorn[standard]>=0.35.0
+Requires-Dist: pypdf>=6.10.1
+Requires-Dist: pymupdf>=1.27.2.2
 
 # V-Legal Prototype
 
-V-Legal is a prototype Vietnamese legal research product built around a clear roadmap:
+V-Legal is being repointed toward a **full local-first markdown port of Vietnamese law**.
 
-1. ship a strong HF-dataset bootstrap prototype fast
-2. layer in official-source trust and taxonomy from Phap dien, VBPL, and Van ban Chinh phu
-3. grow into tracking, RAG, and eventually MCP/API workflows
+The target product is:
 
-The current build already supports:
+- a filesystem-backed legal corpus where every law document becomes structured markdown
+- a rebuildable SQLite index for search, passages, citations, relations, and vectorless RAG
+- official-source provenance from `vbpl.vn`, `vanban.chinhphu.vn`, and `phapdien.moj.gov.vn`
+- a document-first reading experience inspired by the strengths of `thuvienphapluat.vn`
 
-- a local searchable legal archive
-- a gazette-style document reader
-- a grounded retrieval brief instead of unconstrained AI chat
-- personal tracked-law behavior
-- official Phap dien subject taxonomy in the browsing experience
-- official-source lookup routes into VBPL and Van ban Chinh phu
-- a first-pass document relationship graph for amended, replaced, and guided links
-- a citation index for explicit cross-references between documents in the local corpus
-- saved research views and a tracked-law workbench with alert-ready monitoring
-- compare views for side-by-side cross-checking of related legal documents
+This direction is closer to the `legalize-es` model than to the previous focused-corpus prototype.
 
-## Product Direction
+## Status
 
-This prototype follows the design north star in `DESIGN.md`:
+This repo currently contains a working FastAPI + SQLite prototype, but the architecture is in transition.
 
-- document-first, not dashboard-first
-- ivory-and-ink reading experience
-- clear separation between legal content and interface chrome
-- asymmetrical archive layout with research rails
-- prepared for official-source authority layering
+- the old focused economy/finance corpus direction is now legacy
+- Appwrite is no longer the target data architecture
+- the next major implementation step is a canonical markdown corpus under `data/corpus/`
+- the Hugging Face dataset remains useful for bootstrap and backfill, but not as the final source of truth
 
-## Current Scope
+## Target Architecture
 
-### Data sources in the current prototype
-
-- Hugging Face dataset: `Huymaeco/vietnamese-legal-documents`
-- Official Phap dien subject taxonomy seeded from `https://phapdien.moj.gov.vn/TraCuuPhapDien/MainBoPD.aspx`
-
-### Planned next source layers
-
-- `phapdien.moj.gov.vn` for taxonomy and codified structure
-- `vbpl.vn` for official metadata, scope, and legal search coverage
-- `vanban.chinhphu.vn` for official text and PDF provenance
-
-## What the app does today
-
-### Archive experience
-
-- full-text search over title and body content with SQLite FTS5
-- filters for legal type, year, and issuing authority
-- official subject browsing seeded from Phap dien
-- recent-record and document-type side rails
-
-### Reader experience
-
-- centered gazette-style reading column
-- metadata rail
-- document outline rail
-- cited-authorities panel grouped by link type
-- referenced-by panel for inbound citations from other local documents
-- local cross references
-- official-source provenance panel with VBPL and VNCP routes
-- relationship graph panel for inbound and outbound legal links
-- grounded brief panel scoped to the current document
-- compare links from citation and lifecycle panels into a dedicated cross-check view
-
-### Official provenance layer
-
-- every record gets a provenance profile computed from document number, legal type, and issuing authority
-- archive cards show official-route badges where applicable
-- document pages show a richer provenance panel for official cross-checking
-- current official route templates use public search URLs, not hidden APIs
-
-Current route templates used in the app:
-
-- VBPL exact search:
-
-```text
-https://vbpl.vn/pages/vbpq-timkiem.aspx?type=0&s=1&SearchIn=Title,Title1&Keyword={query}
+```mermaid
+flowchart LR
+    U[Browser] --> A[FastAPI + Jinja App]
+    A --> S[(SQLite Derived Index)]
+    S --> M[Local Markdown Corpus]
+    V[VBPL] --> R[Raw Source Snapshots]
+    C[vanban.chinhphu.vn] --> R
+    P[Phap dien] --> R
+    H[HF Bootstrap Dataset] --> R
+    R --> M
 ```
 
-- VNCP search:
+## Core Principles
 
-```text
-https://vanban.chinhphu.vn/?pageid=473&q={query}
-```
+- markdown is the source of truth
+- SQLite is derived and rebuildable
+- raw source snapshots are preserved for provenance
+- official sources outrank third-party snapshots
+- deterministic parsing comes before AI-assisted repair
+- vectorless RAG should work directly from markdown-derived indexes
 
-### Grounded retrieval
+## Official Source Strategy
 
-- retrieves relevant passages from the local corpus
-- assembles a conservative brief from retrieved text only
-- avoids pretending the prototype already has authoritative legal reasoning
+- `vbpl.vn`: primary source for promulgated-document metadata, legal status, relationships, and HTML text when available
+- `vanban.chinhphu.vn`: secondary freshness source for newly issued government texts and official PDFs
+- `phapdien.moj.gov.vn`: primary source for codified topic and effective-law structure
+- `th1nhng0/vietnamese-legal-documents`: bootstrap and backfill source only
+- `VN-Law-Advisor`: reference implementation for crawler ideas only
+- `thuvienphapluat.vn`: UI and workflow benchmark only, not a source dependency
 
-### Citation index
+## Documentation Map
 
-- extracts explicit document references from titles, preambles, and article sections
-- resolves citations by normalized document number against the local corpus
-- groups citations into `amends`, `replaces`, `guides`, `implements`, `legal basis`, and general `cites`
-- shows inbound and outbound citation panels in the reader for faster cross-checking
+| Document | Purpose |
+| --- | --- |
+| `docs/FULL_MARKDOWN_PORT_PLAN.md` | phase-by-phase plan for the full markdown port |
+| `docs/CORPUS_ARCHITECTURE.md` | canonical local-first corpus architecture |
+| `docs/MARKDOWN_SCHEMA.md` | frontmatter, path, and body rules for canonical markdown |
+| `docs/SOURCE_UPDATE_WORKFLOW.md` | official-source update and reconciliation workflow |
+| `docs/AI_PARSING_POLICY.md` | when AI parsing helps and when it should stay out of the critical path |
+| `docs/PDF_OCR_STRATEGY.md` | recommended OCR stack and PDF-to-markdown structure mapping |
+| `docs/LEGAL_READER_IMPLEMENTATION_PLAN.md` | reader and interaction plan |
+| `docs/JOURNAL.md` | development log |
+| `DESIGN.md` | visual design system |
 
-### Personal tracking
+## Current Repo Map
 
-- lets users track laws directly from archive cards and document pages
-- shows tracked laws on the archive page
-- provides a `/tracking` workbench for alerts, watched dossiers, and saved research views
+### Core Modules (`src/vlegal_prototype/`)
 
-### Research workbench
+| File | Responsibility |
+| --- | --- |
+| `app.py` | FastAPI routes, page assembly, startup initialization |
+| `settings.py` | environment config via `pydantic-settings` |
+| `db.py` | SQLite schema, FTS tables, and connection helpers |
+| `search.py` | FTS search, document retrieval, and filtering |
+| `structure.py` | legal text structure, display parsing, inline reference linking |
+| `citations.py` | citation extraction and graph queries |
+| `relations.py` | lifecycle and relationship graph |
+| `compare.py` | side-by-side document comparison |
+| `answering.py` | conservative grounded brief generation |
+| `vectorless.py` | lexical retrieval profile for vectorless RAG |
+| `provenance.py` | VBPL and VNCP provenance profiles |
+| `tracking.py` | same-subject update alerts |
+| `appwrite_client.py` | legacy integration path, no longer the target architecture |
 
-- save archive filters as reusable research views
-- open saved views as repeatable monitoring lenses
-- surface tracked-law alerts from lifecycle links, citations, and newer same-subject documents
-- bundle all of this into a lightweight single-user workflow suitable for the current free-tier deployment model
+### Existing Scripts (`scripts/`)
 
-### Compare mode
+These scripts reflect the current prototype state and will be superseded gradually by markdown-first exporters and rebuilders.
 
-- compare two local documents side by side through `/compare/{left_document_id}/{right_document_id}`
-- prioritize explicit citation routes for lifecycle-style comparisons
-- align sections using citations first, then label/content heuristics when appropriate
-- expose unmatched sections to make version drift and missing coverage obvious
-- add first-pass diff summaries and clause-level change labeling for aligned sections
-
-## Architecture
-
-### Stack
-
-- FastAPI
-- Jinja templates
-- custom CSS/JS
-- SQLite + FTS5
-- Hugging Face `datasets` streaming loader
-
-### Key files
-
-- `src/vlegal_prototype/app.py` - web app entrypoint
-- `src/vlegal_prototype/db.py` - SQLite schema and low-level DB helpers
-- `src/vlegal_prototype/hf_ingest.py` - HF dataset normalization and passage chunking
-- `src/vlegal_prototype/search.py` - archive search and retrieval helpers
-- `src/vlegal_prototype/answering.py` - grounded brief generation
-- `src/vlegal_prototype/taxonomy.py` - Phap dien taxonomy bootstrap and subject matching
-- `src/vlegal_prototype/provenance.py` - official-source route inference and provenance badges
-- `src/vlegal_prototype/relations.py` - relationship graph extraction and document-link queries
-- `src/vlegal_prototype/citations.py` - citation extraction, resolution, and citation graph queries
-- `src/vlegal_prototype/research.py` - saved research view helpers
-- `src/vlegal_prototype/compare.py` - side-by-side document cross-check and section alignment helpers
-- `src/vlegal_prototype/structure.py` - document section extraction and reader anchor generation
-- `src/vlegal_prototype/tracking.py` - tracked-law alert generation and workbench summaries
-- `scripts/bootstrap_hf_dataset.py` - import HF corpus into SQLite
-- `scripts/bootstrap_phapdien_taxonomy.py` - import official subject taxonomy
-- `scripts/bootstrap_citation_index.py` - rebuild explicit cross-document citations
-- `scripts/bootstrap_relationship_graph.py` - rebuild document-to-document links from the local corpus
-- `scripts/prepare_demo_bundle.py` - build a free-tier-friendly deployable demo bundle
+| Script | Current Purpose |
+| --- | --- |
+| `bootstrap_hf_dataset.py` | import corpus from Hugging Face into SQLite |
+| `bootstrap_hf_focused_corpus.py` | legacy focused-corpus rebuild |
+| `update_hf_monthly.py` | incremental update from Hugging Face snapshot |
+| `export_hf_markdown_corpus.py` | export the HF bootstrap corpus into canonical markdown files |
+| `import_phapdien_corpus.py` | import the official Phap dien ebook bundle into codified markdown files |
+| `backfill_vbpl_references.py` | harvest official VBPL links from Phap dien and backfill issued markdown provenance |
+| `import_vncp_listing.py` | import Government Portal legal-document listing rows into provisional issued markdown |
+| `build_pdf_ocr_queue.py` | build an OCR work queue for PDF-backed corpus records |
+| `preview_pdf_ocr_mapping.py` | preview how OCR text maps into the legal markdown structure |
+| `apply_pdf_ocr_text.py` | apply OCR text back into a canonical markdown document |
+| `process_pdf_attachments.py` | download official PDF attachments, extract text, and map them back into canonical markdown |
+| `apply_minimax_ocr_correction.py` | run MiniMax text-only post-correction on OCR text for low-confidence scanned laws |
+| `rebuild_sqlite_from_markdown.py` | rebuild SQLite indexes from canonical markdown |
+| `snapshot_official_source.py` | fetch and store raw snapshots from VBPL, vanban.chinhphu, or Phap dien |
+| `bootstrap_phapdien_taxonomy.py` | seed taxonomy subjects |
+| `bootstrap_relationship_graph.py` | build lifecycle relations |
+| `bootstrap_citation_index.py` | build citation links |
+| `prepare_demo_bundle.py` | prepare preview bundle |
+| `repair_document_dates.py` | repair inconsistent dates |
 
 ## Local Development
 
 ### Prerequisites
 
-- Python 3.12+
+- Python `3.12+`
 - `uv`
 
-This repo works locally with newer Python versions too, but `3.12+` is the deployment-safe baseline.
-
-### Install dependencies
+### Quick Start
 
 ```bash
 uv sync
+uv run uvicorn vlegal_prototype.app:app --reload --app-dir src
 ```
 
-### Bootstrap a starter corpus
+Open `http://127.0.0.1:8000`.
 
-Import a fast local sample:
+### Verification Commands
+
+```bash
+uv run python -m compileall src scripts
+curl http://127.0.0.1:8000/health
+```
+
+## Current Bootstrap Commands
+
+These commands cover both the new markdown-first workflow and the older SQLite-first prototype.
+
+### Recommended markdown-first bootstrap
+
+```bash
+# Export canonical markdown files under data/corpus/
+uv run python scripts/export_hf_markdown_corpus.py --limit 500 --reset
+
+# Rebuild SQLite from the canonical markdown corpus
+set VLEGAL_DATABASE_PATH=data/corpus/sqlite/vlegal.sqlite
+uv run python scripts/rebuild_sqlite_from_markdown.py --reset
+```
+
+### Snapshot an official source page into the raw corpus layer
+
+```bash
+uv run python scripts/snapshot_official_source.py \
+  --source-system vbpl \
+  --source-document-id 213327 \
+  --url https://vbpl.vn/pages/portal.aspx
+```
+
+### Import the official Phap dien codified layer
+
+```bash
+# Import one de muc for testing
+uv run python scripts/import_phapdien_corpus.py \
+  --limit 1 \
+  --topic-id 0cf69ad9-6f29-4ee4-8e16-2c3aa65c3a52
+
+# Import the full ebook bundle into data/corpus/markdown/phapdien/
+uv run python scripts/import_phapdien_corpus.py
+```
+
+### Backfill official VBPL provenance into issued markdown files
+
+```bash
+uv run python scripts/backfill_vbpl_references.py
+```
+
+This scans imported `Phap dien` topics for embedded official `vbpl.vn` links, builds a local VBPL reference index, and writes `official_source_*` fields into matching issued markdown documents when the document number matches exactly.
+
+### Import Government Portal issued-document listings
+
+```bash
+# Import the first law/phap lenh row from the Government Portal listing
+uv run python scripts/import_vncp_listing.py --typegroupid 3 --limit 1
+
+# Import the first 10 Government Portal decrees
+uv run python scripts/import_vncp_listing.py --typegroupid 4 --limit 10
+```
+
+This uses the server-rendered `he-thong-van-ban` listing pages, fetches each detail page, emits provisional markdown records, and backfills `official_source_*` onto matching issued markdown files when no better source is already attached.
+
+### Build and process the PDF OCR queue
+
+```bash
+# Discover which canonical documents still need PDF OCR
+uv run python scripts/build_pdf_ocr_queue.py
+
+# Preview how OCR text maps into the markdown schema
+uv run python scripts/preview_pdf_ocr_mapping.py --text-file data/sample_ocr.txt --title "Luật mẫu"
+
+# Apply OCR text back into a canonical markdown document
+uv run python scripts/apply_pdf_ocr_text.py \
+  --canonical-id vn-issued-vpcp-216529 \
+  --text-file data/ocr_output.txt \
+  --backend paddleocr_ppstructure_plus_vietocr
+
+# Run the hybrid PDF processor directly
+uv run python scripts/process_pdf_attachments.py --canonical-id vn-issued-vpcp-216529
+
+# Run MiniMax text-only OCR post-correction after PaddleOCR
+uv run python scripts/apply_minimax_ocr_correction.py --canonical-id vn-issued-vpcp-216529
+```
+
+### Dedicated OCR runtime
+
+The main app environment stays on Python `3.14`, but the PaddleOCR execution path runs in a dedicated Python `3.13` environment at `.venv-ocr/` because `paddlepaddle` does not currently ship wheels for `cp314` on Windows.
+
+MiniMax does not need image support in this architecture. Images and PDFs are handled by PaddleOCR first, then MiniMax is used only on extracted text for post-correction when the OCR sidecar flags a document as `optional` or `recommended` for LLM help.
+
+### Small local sample
 
 ```bash
 uv run python scripts/bootstrap_hf_dataset.py --limit 500 --reset
 uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
 ```
 
-### Run the app
+### Full-corpus import into SQLite
 
 ```bash
-uv run uvicorn vlegal_prototype.app:app --reload --app-dir src
-```
-
-Open:
-
-- `http://127.0.0.1:8000`
-
-### Useful bootstrap commands
-
-Import 2,000 docs from the beginning:
-
-```bash
-uv run python scripts/bootstrap_hf_dataset.py --limit 2000 --reset
-```
-
-Continue after the first 2,000 docs:
-
-```bash
-uv run python scripts/bootstrap_hf_dataset.py --skip 2000 --limit 2000
-```
-
-Run a resumable large import with checkpointing:
-
-```bash
-uv run python scripts/bootstrap_hf_full_corpus.py --reset --chunk-size 5000
-```
-
-Refresh taxonomy from the checked-in official seed:
-
-```bash
-uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
-```
-
-Rebuild the relationship graph after importing more records:
-
-```bash
+set VLEGAL_DATABASE_PATH=data/full_hf.sqlite
+uv run python scripts/bootstrap_hf_dataset.py
 uv run python scripts/bootstrap_relationship_graph.py
-```
-
-Rebuild the explicit citation index after importing more records:
-
-```bash
 uv run python scripts/bootstrap_citation_index.py
 ```
 
-Attempt a live taxonomy refresh from Phap dien and fall back to the seed if needed:
+### Incremental updater
 
 ```bash
-uv run python scripts/bootstrap_phapdien_taxonomy.py
+uv run python scripts/update_hf_monthly.py --mode full
 ```
 
-Build the same small bundle intended for free-tier deployment:
-
-```bash
-uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
-```
-
-## Database Notes
-
-The local database lives at:
-
-- `data/vlegal.sqlite`
-
-Main tables:
-
-- `documents`
-- `passages`
-- `tracked_documents`
-- `taxonomy_subjects`
-- `document_subjects`
-- `document_relations`
-- `document_sections`
-- `citation_mentions`
-- `citation_links`
-- `research_views`
+These commands are transitional. The target pipeline is markdown-first and is documented in `docs/FULL_MARKDOWN_PORT_PLAN.md`.
 
 ## Environment Variables
 
-All app settings use the `VLEGAL_` prefix.
+| Variable | Default | Description |
+| --- | --- | --- |
+| `VLEGAL_DATABASE_PATH` | `data/vlegal.sqlite` | SQLite index location |
+| `VLEGAL_CORPUS_ROOT` | `data/corpus` | local markdown corpus root |
+| `VLEGAL_PHAPDIEN_EBOOK_URL` | official Phap dien zip URL | official ebook snapshot URL |
+| `VLEGAL_CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | CORS origins |
+| `VLEGAL_SEARCH_PAGE_SIZE` | `12` | results per page |
+| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `6` | passages used for grounded briefs |
+| `VLEGAL_ENABLE_AI_SCHEMA_SIDECAR` | `false` | enable optional AI schema reinforcement sidecars |
+| `VLEGAL_AI_SCHEMA_PROVIDER` | `off` | AI sidecar provider, currently `off`, `openai_compatible`, or `minimax` |
+| `VLEGAL_AI_SCHEMA_MODEL` | - | model name for optional AI sidecar generation |
+| `VLEGAL_AI_SCHEMA_ENDPOINT` | - | chat completions endpoint for optional AI sidecar generation |
+| `VLEGAL_AI_SCHEMA_API_KEY` | - | API key for optional AI sidecar generation |
 
-You can start from:
+Legacy transitional settings still exist in code for Appwrite, but Appwrite is not part of the target architecture.
 
-- `.env.example`
+## Manual Verification Routes
 
-Common ones:
-
-- `VLEGAL_ENVIRONMENT` - `development` or `production`
-- `VLEGAL_DATABASE_PATH` - custom SQLite path
-- `VLEGAL_DATASET_NAME` - alternate HF dataset id
-- `VLEGAL_DEFAULT_IMPORT_LIMIT` - default import limit for HF bootstrap
-- `VLEGAL_SEARCH_PAGE_SIZE` - archive page size
-- `VLEGAL_ANSWER_PASSAGE_LIMIT` - grounded brief retrieval depth
-- `VLEGAL_PHAPDIEN_MAIN_URL` - override the Phap dien source URL
-
-## Deployment
-
-For a step-by-step deploy walkthrough, use:
-
-- `DEPLOYMENT.md`
-
-For the recommended split setup with frontend on Vercel and backend on OCI, use:
-
-- `DEPLOYMENT_OCI_VERCEL.md`
-
-## Recommended free-tier deployment target
-
-The repo is prepared for a Render free web service because:
-
-- FastAPI runs well as a simple Python web service
-- the demo bundle can be built once during deploy
-- a 500-document SQLite archive stays small enough for a free preview
-
-### Render files included
-
-- `render.yaml`
-- `Dockerfile`
-- `.dockerignore`
-
-### Render free-tier strategy used here
-
-To stay within free-tier constraints, the deployment bundle is intentionally small:
-
-- only `500` HF documents are bundled by default
-- Phap dien taxonomy comes from a checked-in official seed, so deploys do not depend on live crawling
-- the bundled SQLite database is created at build time, not regenerated on every request
-
-### Important free-tier limitations
-
-Render free web services spin down when idle and use an ephemeral filesystem for runtime changes.
-
-That means:
-
-- the bundled archive data prepared during build is fine for a preview
-- runtime edits to local SQLite can be lost after restart, redeploy, or spin-down
-- tracked-law state is therefore preview-grade only on a pure free-tier SQLite deploy
-- saved research views and workbench alert state are also preview-grade under the same constraint
-
-If you want durable tracking later, move tracked state to a managed database.
-
-### Deploy to Render
-
-1. Push this repo to GitHub.
-2. Create a new Render Web Service.
-3. Let Render detect `render.yaml`, or configure the same commands manually.
-4. Deploy.
-
-Default Render config in this repo:
-
-- plan: `free`
-- build command:
-
-```bash
-pip install uv && uv sync --frozen && uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
-```
-
-- start command:
-
-```bash
-uv run uvicorn vlegal_prototype.app:app --app-dir src --host 0.0.0.0 --port $PORT
-```
-
-### Deploy with Docker
-
-Build locally:
-
-```bash
-docker build -t v-legal-prototype .
-```
-
-Run locally:
-
-```bash
-docker run -p 8000:8000 v-legal-prototype
-```
-
-The Docker image also prepares the small demo bundle at build time.
-
-## Free-Tier Sizing Guidance
-
-The current demo deployment profile is intentionally conservative:
-
-- `500` docs instead of the full HF dataset
-- local SQLite instead of a heavier search cluster
-- no external vector DB
-- server-rendered frontend instead of a heavier SPA stack
-
-This keeps:
-
-- build time lower
-- runtime RAM lower
-- disk footprint smaller
-- cold-start recovery simpler
-
-If you increase the corpus size, do it gradually and measure memory and startup time before keeping it in a free plan.
+- `/`
+- `/tracking`
+- `/documents/{id}`
+- `/compare/{left_id}/{right_id}`
+- `/health`
 
 ## Trust Model
 
-This prototype is useful for search and UX validation, but it is not yet a fully authoritative legal status engine.
+This is still a prototype and is **not** an authoritative legal-status engine.
 
-Current limitations:
+Current limits:
 
-- HF corpus is a bootstrap corpus, not the final source of truth
-- effective status, amendment graph, and official consolidation are not complete yet
-- VBPL and VNCP links are currently public search-route helpers, not guaranteed direct canonical detail links for every record
-- relationship graph links are heuristic and currently based on the imported local corpus, so sparse or missing links are expected in small demo bundles
-- citation resolution currently depends on local corpus coverage and exact/near-exact document number matching, so unresolved references still occur
-- tracked-law alerts currently derive from local graph/citation/same-subject signals and are meant as monitoring aids, not authoritative legal-status notifications
-- compare alignment is strongest when explicit citations exist; heuristic section matching is still intentionally conservative and incomplete
-- grounded brief output must still be checked against official sources
+- the current import path is still SQLite-first
+- Hugging Face remains a bootstrap source, not final source of truth
+- citation and lifecycle graphs depend on local corpus quality
+- official-source reconciliation is not fully implemented yet
+- grounded briefs remain retrieval-based summaries that require official verification
 
-## Memory Bank
+## Legacy Notes
 
-Project memory is tracked in:
+- `docs/FOCUSED_CORPUS_SCOPE.md` is now a legacy direction note
+- `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` is an archived deployment path
+- remaining Appwrite code should be treated as transitional, not strategic
 
-- `.agents/memory-bank/README.md`
-- `.agents/memory-bank/project-brief.md`
-- `.agents/memory-bank/architecture.md`
-- `.agents/memory-bank/decisions.md`
-- `.agents/memory-bank/progress.md`
-- `.agents/memory-bank/roadmap.md`
+## Project References
 
-## Suggested Next Build Step
-
-The next implementation step after this state is:
-
-1. add richer compare intelligence for old/current/amended documents, including diff summaries and clause-level change labeling
-
-That is the best follow-up now that the first compare workflow, workbench, citation index, provenance layer, and lifecycle graph are already in place.
+- Design direction: `DESIGN.md`
+- Agent guidance: `AGENTS.md`
+- Development journal: `docs/JOURNAL.md`
+- Memory bank: `.agents/memory-bank/`

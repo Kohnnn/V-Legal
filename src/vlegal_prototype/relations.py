@@ -3,15 +3,11 @@ from __future__ import annotations
 import re
 import sqlite3
 
+from .doc_number import (
+    CONTEXTUAL_DOC_REFERENCE_PATTERN,
+    DOC_NUMBER_PATTERN,
+)
 from .taxonomy import normalize_ascii
-
-
-DOC_NUMBER_PATTERN = re.compile(
-    r"\b\d+[a-z]?(?:[/-]\d{2,4})?(?:[/-][0-9a-z]*[a-z][0-9a-z]*)+\b"
-)
-CONTEXTUAL_DOC_REFERENCE_PATTERN = re.compile(
-    r"\b(bo luat|luat|phap lenh|sac lenh|lenh|nghi quyet|nghi dinh|quyet dinh|chi thi|thong tu lien tich|thong tu)\s*(?:so\s*[:.]?\s*)?(\d{1,4}(?:[/-]\d{2,4})?(?:[/-][0-9a-z]+)?)\b"
-)
 
 LEGAL_TYPE_ABBREVIATIONS = {
     "sac lenh": {"sl"},
@@ -316,7 +312,21 @@ def choose_target_document(
     reference_legal_type: str | None = None,
     reference_year: int | None = None,
     reference_context_text: str | None = None,
-) -> dict | None:
+    return_confidence: bool = False,
+):
+    """Resolve a referenced document number to a corpus document.
+
+    When ``return_confidence`` is True, returns ``(candidate | None, confidence)``
+    where confidence is one of ``"high"``, ``"medium"``, ``"low"`` reflecting how
+    decisively the target was chosen (unique deterministic match vs. a scored
+    pick with a thin margin). Otherwise returns just the candidate (or ``None``).
+    """
+
+    def _result(candidate: dict | None, confidence: str):
+        if return_confidence:
+            return candidate, (confidence if candidate else "none")
+        return candidate
+
     normalized_reference = normalize_document_number(referenced_number)
     candidates_by_id: dict[int, dict] = {}
     for key in build_document_number_aliases(referenced_number, reference_legal_type):
@@ -326,7 +336,7 @@ def choose_target_document(
             candidates_by_id[candidate["id"]] = candidate
     candidates = list(candidates_by_id.values())
     if not candidates:
-        return None
+        return _result(None, "none")
 
     normalized_legal_type_hint = normalize_legal_type_hint(reference_legal_type)
     if normalized_legal_type_hint:
@@ -349,7 +359,7 @@ def choose_target_document(
             )
         ]
         if len(same_year_candidates) == 1:
-            return same_year_candidates[0]
+            return _result(same_year_candidates[0], "high")
         if same_year_candidates:
             candidates = same_year_candidates
 
@@ -369,13 +379,11 @@ def choose_target_document(
             candidates = suffix_candidates
 
     if len(candidates) == 1:
-        return (
-            candidates[0]
-            if candidate_has_valid_context(
-                source_document, candidates[0], referenced_number
-            )
-            else None
-        )
+        if candidate_has_valid_context(
+            source_document, candidates[0], referenced_number
+        ):
+            return _result(candidates[0], "high")
+        return _result(None, "none")
 
     source_issuer = normalize_ascii(source_document.get("issuing_authority") or "")
     if source_issuer:
@@ -389,7 +397,7 @@ def choose_target_document(
             )
         ]
         if len(same_issuer) == 1:
-            return same_issuer[0]
+            return _result(same_issuer[0], "medium")
 
     source_title_tokens = set(
         normalize_ascii(source_document.get("title") or "").split()
@@ -432,8 +440,10 @@ def choose_target_document(
             source_document, scored_candidates[0][1], referenced_number
         )
     ):
-        return scored_candidates[0][1]
-    return None
+        margin = scored_candidates[0][0] - scored_candidates[1][0]
+        confidence = "medium" if margin >= 3 else "low"
+        return _result(scored_candidates[0][1], confidence)
+    return _result(None, "none")
 
 
 def resolve_target_document(
@@ -478,6 +488,30 @@ def resolve_target_document(
     )
 
 
+def _endmatter_window(plain_content: str, max_chars: int = 2400) -> str:
+    """Return the tail window of a body where execution/repeal clauses live.
+
+    Vietnamese laws place "điều khoản thi hành" (implementation provisions),
+    including repeal/replacement statements, near the end of the body. Scanning
+    only the tail keeps the body pass affordable on the full corpus and avoids
+    re-detecting references that the citation index already covers in the main
+    text.
+    """
+    if not plain_content:
+        return ""
+    text = plain_content.strip()
+    if len(text) <= max_chars:
+        return text
+    return text[-max_chars:]
+
+
+_CONFIDENCE_DOWNGRADE = {"high": "medium", "medium": "low", "low": "low"}
+
+
+def _downgrade_confidence(confidence: str) -> str:
+    return _CONFIDENCE_DOWNGRADE.get(confidence, "low")
+
+
 def rebuild_relationship_graph(connection: sqlite3.Connection) -> int:
     documents = [
         dict(row)
@@ -493,13 +527,15 @@ def rebuild_relationship_graph(connection: sqlite3.Connection) -> int:
     relation_rows: list[tuple[int, int, str, str, str]] = []
     seen: set[tuple[int, int, str]] = set()
 
+    # Pass 1: title evidence (primary, most reliable).
     for document in documents:
         for candidate in extract_relation_candidates(document["title"]):
-            target = choose_target_document(
+            target, confidence = choose_target_document(
                 document,
                 candidate["referenced_number"],
                 number_index,
                 reference_legal_type=candidate.get("legal_type_hint"),
+                return_confidence=True,
             )
             if not target:
                 continue
@@ -513,7 +549,48 @@ def rebuild_relationship_graph(connection: sqlite3.Connection) -> int:
                     target["id"],
                     candidate["relation_type"],
                     document["title"],
-                    "high",
+                    confidence,
+                )
+            )
+
+    # Pass 2: body endmatter evidence. Repeal/amend clauses in Vietnamese law
+    # often live in the "điều khoản thi hành" section near the end of the body
+    # rather than in the title. Scan only a bounded tail window per document to
+    # keep this affordable on the full corpus, use a separate streaming cursor
+    # so we never hold all bodies in memory, and downgrade confidence one notch
+    # because body references are noisier than title references.
+    documents_by_id = {document["id"]: document for document in documents}
+    body_cursor = connection.execute(
+        "SELECT id, plain_content FROM documents WHERE COALESCE(plain_content, '') <> ''"
+    )
+    for row in body_cursor:
+        document = documents_by_id.get(row["id"])
+        if document is None:
+            continue
+        endmatter = _endmatter_window(row["plain_content"])
+        if not endmatter:
+            continue
+        for candidate in extract_relation_candidates(endmatter):
+            target, confidence = choose_target_document(
+                document,
+                candidate["referenced_number"],
+                number_index,
+                reference_legal_type=candidate.get("legal_type_hint"),
+                return_confidence=True,
+            )
+            if not target:
+                continue
+            real_key = (document["id"], target["id"], candidate["relation_type"])
+            if real_key in seen:
+                continue
+            seen.add(real_key)
+            relation_rows.append(
+                (
+                    document["id"],
+                    target["id"],
+                    candidate["relation_type"],
+                    "Điều khoản thi hành (thân văn bản)",
+                    _downgrade_confidence(confidence),
                 )
             )
 

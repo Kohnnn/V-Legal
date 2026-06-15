@@ -1,5 +1,11 @@
 # V-Legal Deployment Guide
 
+> Archived deployment path
+>
+> This document captures an older Netlify + OCI + Appwrite deployment approach.
+> Appwrite is no longer part of the target corpus architecture.
+> Use `README.md` and `docs/FULL_MARKDOWN_PORT_PLAN.md` for the active direction.
+
 **Stack:** Netlify (frontend) + OCI VM FastAPI (backend) + Appwrite (user data)
 
 **What goes where:**
@@ -422,3 +428,8 @@ The fallback `_redirects` file should include:
 ```
 /*    /index.html   200
 ```
+> Archived deployment path
+>
+> This document captures an older Netlify + OCI + Appwrite deployment approach.
+> Appwrite is no longer part of the target corpus architecture.
+> Treat this file as historical reference only and prefer the markdown-corpus docs in `README.md` and `docs/FULL_MARKDOWN_PORT_PLAN.md`.

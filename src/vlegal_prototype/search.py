@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from datetime import datetime
-
+from datetime import datetime, timezone
 from .taxonomy import normalize_ascii
 
 
@@ -70,6 +69,15 @@ FOCUS_QUERY_STOPWORDS = {
 }
 
 HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+
+# Maps a UI status key to the raw frontmatter status tokens it should match.
+# Keeps the public filter values stable while tolerating source variations.
+STATUS_FILTER_TOKENS = {
+    "in_force": ("in_force", "active"),
+    "expired": ("expired", "repealed"),
+    "partial": ("partially_expired", "partially_in_force"),
+    "unknown": ("unknown", ""),
+}
 
 
 def normalize_query_text(value: str) -> str:
@@ -218,7 +226,11 @@ def search_identifier_documents(
     if not normalized_query:
         return {"items": [], "page": page, "page_count": 0, "total": 0}
 
-    number_expr = "REPLACE(UPPER(COALESCE(d.document_number, '')), '-', '/')"
+    # ``document_number_norm`` stores the already-normalized form (uppercased,
+    # whitespace stripped, ``-`` unified to ``/``) so these predicates are
+    # sargable against ``idx_documents_document_number_norm`` instead of forcing
+    # a full scan via ``REPLACE(UPPER(COALESCE(document_number, '')), '-', '/')``.
+    number_expr = "COALESCE(d.document_number_norm, '')"
     title_like = f"%{query.strip().upper()}%"
     prefix_slash = f"{normalized_query}/%"
     prefix_general = f"{normalized_query}%"
@@ -250,7 +262,7 @@ def search_identifier_documents(
     if not total:
         return {"items": [], "page": page, "page_count": 0, "total": 0}
 
-    max_reasonable_year = datetime.utcnow().year + 1
+    max_reasonable_year = datetime.now(timezone.utc).year + 1
     sql = f"""
         SELECT
             d.id,
@@ -421,7 +433,7 @@ def get_top_legal_types(connection: sqlite3.Connection, limit: int = 6) -> list[
         """
         SELECT legal_type, COUNT(*) AS total
         FROM documents
-        WHERE COALESCE(legal_type, '') <> ''
+        WHERE legal_type <> ''
         GROUP BY legal_type
         ORDER BY total DESC, legal_type ASC
         LIMIT ?
@@ -432,18 +444,17 @@ def get_top_legal_types(connection: sqlite3.Connection, limit: int = 6) -> list[
 
 
 def get_recent_documents(connection: sqlite3.Connection, limit: int = 5) -> list[dict]:
-    max_reasonable_year = datetime.utcnow().year + 1
+    # ``id`` is a SHA256-derived hash, so ``ORDER BY id DESC`` is effectively
+    # random. Order by ingest recency first, then by legal recency, both of
+    # which are index-backed (idx_documents_imported_at / year_issuance_id).
     rows = connection.execute(
         """
-        SELECT id, title, document_number, legal_type, issuing_authority, issuance_date, excerpt
+        SELECT id, title, document_number, legal_type, issuing_authority, issuance_date, status, excerpt
         FROM documents
-        ORDER BY
-            CASE WHEN year BETWEEN 1800 AND ? THEN year END DESC,
-            CASE WHEN year BETWEEN 1800 AND ? THEN issuance_date END DESC,
-            id DESC
+        ORDER BY imported_at DESC, year DESC, issuance_date DESC, id DESC
         LIMIT ?
         """,
-        (max_reasonable_year, max_reasonable_year, limit),
+        (limit,),
     ).fetchall()
     return [dict(row) for row in rows]
 
@@ -526,6 +537,7 @@ def search_documents(
     legal_type: str | None = None,
     year: int | None = None,
     issuer: str | None = None,
+    status: str | None = None,
 ) -> dict:
     page = max(page, 1)
     offset = (page - 1) * page_size
@@ -541,6 +553,11 @@ def search_documents(
     if issuer:
         filters.append("LOWER(d.issuing_authority) LIKE LOWER(?)")
         filter_params.append(f"%{issuer.strip()}%")
+    status_tokens = STATUS_FILTER_TOKENS.get((status or "").strip().lower())
+    if status_tokens:
+        placeholders = ", ".join("?" for _ in status_tokens)
+        filters.append(f"LOWER(REPLACE(REPLACE(d.status, '-', '_'), ' ', '_')) IN ({placeholders})")
+        filter_params.extend(status_tokens)
 
     query = query.strip()
     if query:
@@ -565,12 +582,22 @@ def search_documents(
             if filters
             else "documents_fts MATCH ?"
         )
-        count_sql = f"""
-            SELECT COUNT(*)
-            FROM documents_fts
-            JOIN documents d ON d.id = documents_fts.rowid
-            WHERE {where_clause}
-        """
+        # When no metadata filters are active the count needs only the FTS
+        # table; joining the 150k-row base table is pure overhead. Only join
+        # when a filter references a ``documents`` column.
+        if filters:
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM documents_fts
+                JOIN documents d ON d.id = documents_fts.rowid
+                WHERE {where_clause}
+            """
+        else:
+            count_sql = """
+                SELECT COUNT(*)
+                FROM documents_fts
+                WHERE documents_fts MATCH ?
+            """
         total = connection.execute(count_sql, [fts_query, *filter_params]).fetchone()[0]
         if not total:
             return search_retrieval_documents(
@@ -592,6 +619,7 @@ def search_documents(
                 d.issuance_date,
                 d.legal_sectors,
                 d.url,
+                d.status,
                 snippet(documents_fts, 2, '<mark>', '</mark>', ' ... ', 18) AS snippet,
                 bm25(documents_fts, 5.0, 1.0, 2.0) AS rank
             FROM documents_fts
@@ -617,6 +645,7 @@ def search_documents(
                 d.issuance_date,
                 d.legal_sectors,
                 d.url,
+                d.status,
                 d.excerpt AS snippet
             FROM documents d
             WHERE {where_clause}
@@ -624,7 +653,6 @@ def search_documents(
             LIMIT ? OFFSET ?
         """
         rows = connection.execute(sql, [*filter_params, page_size, offset]).fetchall()
-
     page_count = (total + page_size - 1) // page_size if total else 0
     return {
         "items": [dict(row) for row in rows],
@@ -641,6 +669,32 @@ def get_document(connection: sqlite3.Connection, document_id: int) -> dict | Non
         FROM documents
         WHERE id = ?
         """,
+        (document_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+# Columns needed by metadata-only consumers (compare, provenance, previews).
+# Excludes the large ``content``/``plain_content`` blobs so these lookups do not
+# pull full document bodies into memory.
+_DOCUMENT_META_COLUMNS = (
+    "id, canonical_id, document_number, document_number_norm, title, url, "
+    "legal_type, legal_sectors, issuing_authority, issuance_date, signers, "
+    "excerpt, year, source, source_system, source_document_id, document_layer, "
+    "text_source, parse_confidence, corpus_path, status, effective_date, "
+    "expiry_date, imported_at"
+)
+
+
+def get_document_meta(connection: sqlite3.Connection, document_id: int) -> dict | None:
+    """Like ``get_document`` but without the large body columns.
+
+    Use for compare, provenance, and preview paths that never read
+    ``content``/``plain_content`` off the row. The reader body path must keep
+    using ``get_document``.
+    """
+    row = connection.execute(
+        f"SELECT {_DOCUMENT_META_COLUMNS} FROM documents WHERE id = ?",
         (document_id,),
     ).fetchone()
     return dict(row) if row else None
@@ -714,31 +768,69 @@ def get_related_documents(
 
     excluded_ids = [document["id"], *[item["id"] for item in related]]
     placeholders = ", ".join("?" for _ in excluded_ids)
-    fallback_rows = connection.execute(
-        """
-        SELECT id, title, document_number, legal_type, issuance_date
-        FROM documents
-        WHERE id NOT IN ("""
-        + placeholders
-        + """)
-          AND (
-                legal_type = ?
-             OR issuing_authority = ?
-             OR year = ?
-          )
-        ORDER BY ABS(COALESCE(year, 0) - COALESCE(?, 0)) ASC, title ASC
-        LIMIT ?
-        """,
-        (
-            *excluded_ids,
-            document.get("legal_type") or "",
-            document.get("issuing_authority") or "",
-            document.get("year"),
-            document.get("year"),
-            limit - len(related),
-        ),
-    ).fetchall()
-    return [*related, *[dict(row) for row in fallback_rows]]
+    fallback_map: dict[int, dict] = {}
+    fallback_limit = limit - len(related)
+
+    if document.get("legal_type"):
+        rows = connection.execute(
+            """
+            SELECT id, title, document_number, legal_type, issuance_date
+            FROM documents
+            WHERE id NOT IN ("""
+            + placeholders
+            + """)
+              AND legal_type = ?
+            ORDER BY year DESC, issuance_date DESC, title ASC
+            LIMIT ?
+            """,
+            (*excluded_ids, document.get("legal_type") or "", fallback_limit),
+        ).fetchall()
+        for row in rows:
+            fallback_map.setdefault(row["id"], dict(row))
+
+    if len(fallback_map) < fallback_limit and document.get("issuing_authority"):
+        rows = connection.execute(
+            """
+            SELECT id, title, document_number, legal_type, issuance_date
+            FROM documents
+            WHERE id NOT IN ("""
+            + placeholders
+            + """)
+              AND issuing_authority = ?
+            ORDER BY year DESC, issuance_date DESC, title ASC
+            LIMIT ?
+            """,
+            (
+                *excluded_ids,
+                document.get("issuing_authority") or "",
+                fallback_limit - len(fallback_map),
+            ),
+        ).fetchall()
+        for row in rows:
+            fallback_map.setdefault(row["id"], dict(row))
+
+    if len(fallback_map) < fallback_limit and document.get("year"):
+        rows = connection.execute(
+            """
+            SELECT id, title, document_number, legal_type, issuance_date
+            FROM documents
+            WHERE id NOT IN ("""
+            + placeholders
+            + """)
+              AND year = ?
+            ORDER BY title ASC
+            LIMIT ?
+            """,
+            (
+                *excluded_ids,
+                document.get("year"),
+                fallback_limit - len(fallback_map),
+            ),
+        ).fetchall()
+        for row in rows:
+            fallback_map.setdefault(row["id"], dict(row))
+
+    return [*related, *list(fallback_map.values())[:fallback_limit]]
 
 
 def retrieve_passages(

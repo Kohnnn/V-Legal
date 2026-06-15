@@ -124,11 +124,56 @@ def should_offer_vncp(document: dict) -> bool:
     return False
 
 
+def build_direct_official_route(document: dict) -> dict | None:
+    source_url = (document.get("official_source_url") or document.get("url") or "").strip()
+    source_system = normalize_ascii(document.get("official_source_system") or "")
+    if not source_url:
+        return None
+
+    if source_system == "vbpl":
+        return {
+            "id": "official-vbpl",
+            "label": "Open official VBPL record",
+            "short_label": "VBPL Direct",
+            "url": source_url,
+            "fallback_url": VBPL_PORTAL_URL,
+            "confidence": "high",
+            "note": "Direct official record captured in the local corpus metadata.",
+        }
+
+    if source_system in {"vanban_chinhphu", "vpcp"}:
+        return {
+            "id": "official-vncp",
+            "label": "Open official Government Portal record",
+            "short_label": "VNCP Direct",
+            "url": source_url,
+            "fallback_url": VNCP_PORTAL_URL,
+            "confidence": "high",
+            "note": "Direct official Government Portal record captured in the local corpus metadata.",
+        }
+
+    return {
+        "id": "official-source",
+        "label": "Open official source",
+        "short_label": "Official",
+        "url": source_url,
+        "fallback_url": source_url,
+        "confidence": "medium",
+        "note": "Direct official source captured in the local corpus metadata.",
+    }
+
+
 def build_provenance_profile(document: dict) -> dict:
     issuer_scope = classify_issuer_scope(document.get("issuing_authority"))
     document_family = classify_document_family(document.get("legal_type"))
 
-    routes = [
+    routes = []
+
+    direct_route = build_direct_official_route(document)
+    if direct_route:
+        routes.append(direct_route)
+
+    routes.append(
         {
             "id": "vbpl",
             "label": "Search on VBPL",
@@ -138,7 +183,7 @@ def build_provenance_profile(document: dict) -> dict:
             "confidence": "high" if document_family == "normative" else "medium",
             "note": "Best official legal database route for Vietnamese legal text lookup.",
         }
-    ]
+    )
 
     if should_offer_vncp(document):
         routes.append(
@@ -184,7 +229,7 @@ def build_provenance_profile(document: dict) -> dict:
         "corpus_source": {
             "label": "Local corpus source",
             "short_label": "Corpus",
-            "url": document.get("url") or VBPL_PORTAL_URL,
+            "url": document.get("official_source_url") or document.get("url") or VBPL_PORTAL_URL,
         },
     }
 

@@ -2,16 +2,20 @@
 
 This guide covers the legacy preview deployment routes for the V-Legal prototype.
 
+> Documentation status
+>
+> The repo is being repointed toward a local-first markdown corpus.
+> Appwrite is no longer part of the target architecture.
+> Treat this file as legacy deployment guidance for the current prototype, not as the long-term system design.
+
 The current live deployment shape is:
 
 - Netlify proxy frontend
 - OCI-hosted FastAPI backend
 - SQLite corpus on the OCI VM
-- Appwrite TablesDB for tracked laws and research views
 
 Use these docs first for the current setup:
 
-- `DEPLOYMENT_NETLIFY_APPWRITE.md` for Netlify + OCI + Appwrite
 - `DEPLOYMENT_OCI_VERCEL.md` for OCI backend + Vercel frontend
 
 If you plan to run frontend on Vercel and backend on OCI, use the dedicated guide:

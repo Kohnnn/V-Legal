@@ -1,5 +1,12 @@
 # Focused Corpus Scope
 
+> Archived direction
+>
+> This document describes a previous focused economy / finance / industry corpus strategy.
+> The active direction for the repo is now a full local-first markdown corpus of Vietnamese law.
+> Use `docs/FULL_MARKDOWN_PORT_PLAN.md`, `docs/CORPUS_ARCHITECTURE.md`, and `docs/MARKDOWN_SCHEMA.md` for the current target architecture.
+> The remainder of this file is preserved only as historical reference.
+
 V-Legal's primary corpus is not meant to be a broad all-law archive. It is a focused research database for economy, finance, and industry-sector legal work that supports equity and sector analysis.
 
 ## Inclusion Goals

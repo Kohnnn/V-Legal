@@ -1,243 +1,311 @@
 # V-Legal Prototype
 
-V-Legal is a document-first Vietnamese legal research prototype combining:
-- a focused economy/finance/industry legal corpus from Hugging Face
-- official-topic layering from Phap dien
-- official search routes into `vbpl.vn` and `vanban.chinhphu.vn`
-- a formal legal reader with inline cross-reference links
-- tracked laws and saved research views backed by Appwrite
+V-Legal is being repointed toward a **full local-first markdown port of Vietnamese law**.
 
-## Current Deployment
+The target product is:
 
-| Layer | Technology |
-|-------|------------|
-| frontend | Netlify proxy at `https://vlegal-frontend.netlify.app` |
-| backend | FastAPI on OCI VM |
-| corpus | SQLite at `/opt/vlegal/data/full_hf.sqlite` |
-| user data | Appwrite TablesDB |
+- a filesystem-backed legal corpus where every law document becomes structured markdown
+- a rebuildable SQLite index for search, passages, citations, relations, and vectorless RAG
+- official-source provenance from `vbpl.vn`, `vanban.chinhphu.vn`, and `phapdien.moj.gov.vn`
+- a document-first reading experience inspired by the strengths of `thuvienphapluat.vn`
 
-**Corpus note:** the live OCI corpus is rebuilt from Hugging Face into `/opt/vlegal/data/full_hf.sqlite` with a focused economy/finance/industry scope, while tracked laws and research views stay in Appwrite.
+This direction is closer to the `legalize-es` model than to the previous focused-corpus prototype.
 
-**Live health snapshot:** at the time of this README update, `/health` reports `86,282` documents. Treat this as a deploy-time snapshot rather than a fixed constant.
+## Status
 
-## What It Does
+This repo currently contains a working FastAPI + SQLite prototype, but the architecture is in transition.
 
-- search Vietnamese legal documents with SQLite FTS5
-- filter by legal type, year, issuer, and topic
-- read documents in a formal gazette-style layout
-- follow inline document references inside the body text
-- open provenance routes for VBPL and VNCP cross-checking
-- inspect citation and lifecycle relationships between documents
-- track laws and save research views for repeat monitoring
-- compare two local documents side by side
-- generate conservative grounded briefs from retrieved passages only
-- maintain a vectorless RAG profile using lexical retrieval artifacts instead of embeddings
+- the old focused economy/finance corpus direction is now legacy
+- Appwrite is no longer the target data architecture
+- the next major implementation step is a canonical markdown corpus under `data/corpus/`
+- the Hugging Face dataset remains useful for bootstrap and backfill, but not as the final source of truth
 
-## Architecture
+### Current Corpus Snapshot
+
+As of the latest local build (`data/corpus/manifests/corpus_summary.json`):
+
+- `153,926` canonical markdown documents under `data/corpus/markdown/` (`153,620` issued, `306` Phap dien)
+- coverage years `1925`–`2026`
+- derived SQLite index at `data/corpus/sqlite/vlegal.sqlite`
+
+Recent search/reader correctness and performance work is tracked in `docs/IMPROVEMENT_PLAN.md`, including a one-time `document_number_norm` backfill migration (`scripts/migrate_add_search_indexes.py`).
+
+## Target Architecture
 
 ```mermaid
 flowchart LR
-    U[Browser] --> N[Netlify Frontend Proxy]
-    N --> O[OCI FastAPI App]
-    O --> S[(SQLite Full Corpus)]
-    O --> A[(Appwrite TablesDB)]
-    O --> P[Phap dien Taxonomy]
-    O --> V[VBPL / VNCP Search]
+    U[Browser] --> A[FastAPI + Jinja App]
+    A --> S[(SQLite Derived Index)]
+    S --> M[Local Markdown Corpus]
+    V[VBPL] --> R[Raw Source Snapshots]
+    C[vanban.chinhphu.vn] --> R
+    P[Phap dien] --> R
+    H[HF Bootstrap Dataset] --> R
+    R --> M
 ```
 
-## Data Flow
+## Core Principles
 
-```mermaid
-flowchart TD
-    HF[Hugging Face Legal Corpus] --> INGEST[bootstrap_hf_dataset.py]
-    INGEST --> SQLITE[full_hf.sqlite]
-    PHAPDIEN[Phap dien] --> TAX[bootstrap_phapdien_taxonomy.py]
-    TAX --> SQLITE
-    SQLITE --> API[FastAPI + Jinja]
-    API --> APPWRITE[(Appwrite)]
-    APPWRITE --> USER[Tracked / Research Views]
-    SQLITE --> REL[bootstrap_relationship_graph.py]
-    SQLITE --> CIT[bootstrap_citation_index.py]
-    REL -.-> SQLITE
-    CIT -.-> SQLITE
-```
+- markdown is the source of truth
+- SQLite is derived and rebuildable
+- raw source snapshots are preserved for provenance
+- official sources outrank third-party snapshots
+- deterministic parsing comes before AI-assisted repair
+- vectorless RAG should work directly from markdown-derived indexes
 
-## Repo Map
+## Official Source Strategy
+
+- `vbpl.vn`: primary source for promulgated-document metadata, legal status, relationships, and HTML text when available
+- `vanban.chinhphu.vn`: secondary freshness source for newly issued government texts and official PDFs
+- `phapdien.moj.gov.vn`: primary source for codified topic and effective-law structure
+- `th1nhng0/vietnamese-legal-documents`: bootstrap and backfill source only
+- `VN-Law-Advisor`: reference implementation for crawler ideas only
+- `thuvienphapluat.vn`: UI and workflow benchmark only, not a source dependency
+
+## Documentation Map
+
+| Document | Purpose |
+| --- | --- |
+| `docs/FULL_MARKDOWN_PORT_PLAN.md` | phase-by-phase plan for the full markdown port |
+| `docs/CORPUS_ARCHITECTURE.md` | canonical local-first corpus architecture |
+| `docs/MARKDOWN_SCHEMA.md` | frontmatter, path, and body rules for canonical markdown |
+| `docs/SOURCE_UPDATE_WORKFLOW.md` | official-source update and reconciliation workflow |
+| `docs/AI_PARSING_POLICY.md` | when AI parsing helps and when it should stay out of the critical path |
+| `docs/PDF_OCR_STRATEGY.md` | recommended OCR stack and PDF-to-markdown structure mapping |
+| `docs/LEGAL_READER_IMPLEMENTATION_PLAN.md` | reader and interaction plan |
+| `docs/JOURNAL.md` | development log |
+| `DESIGN.md` | visual design system |
+
+## Current Repo Map
 
 ### Core Modules (`src/vlegal_prototype/`)
 
 | File | Responsibility |
-|------|---------------|
+| --- | --- |
 | `app.py` | FastAPI routes, page assembly, startup initialization |
-| `settings.py` | Environment config via pydantic-settings |
-| `db.py` | SQLite schema (FTS5, triggers), connection helpers |
-| `search.py` | FTS5 search, document retrieval, filtering |
-| `structure.py` | Legal text structure, inline reference linking |
-| `citations.py` | Citation extraction, graph queries |
-| `relations.py` | Lifecycle/relationship graph |
-| `compare.py` | Side-by-side document comparison |
-| `appwrite_client.py` | Tracked laws, research views (Appwrite) |
-| `answering.py` | Grounded brief generation |
-| `vectorless.py` | Derived lexical retrieval profile for vectorless RAG |
-| `provenance.py` | VBPL/VNCP provenance profiles |
-| `tracking.py` | Same-subject update alerts |
+| `settings.py` | environment config via `pydantic-settings` |
+| `db.py` | SQLite schema, FTS tables, and connection helpers |
+| `search.py` | FTS search, document retrieval, and filtering |
+| `structure.py` | legal text structure, display parsing, inline reference linking |
+| `citations.py` | citation extraction and graph queries |
+| `relations.py` | lifecycle and relationship graph |
+| `compare.py` | side-by-side document comparison |
+| `answering.py` | conservative grounded brief generation |
+| `vectorless.py` | lexical retrieval profile for vectorless RAG |
+| `provenance.py` | VBPL and VNCP provenance profiles |
+| `tracking.py` | same-subject update alerts |
+| `appwrite_client.py` | legacy integration path, no longer the target architecture |
 
-### Bootstrap Scripts (`scripts/`)
+### Existing Scripts (`scripts/`)
 
-| Script | Purpose |
-|--------|---------|
-| `bootstrap_hf_dataset.py` | Import legal corpus from Hugging Face |
-| `bootstrap_hf_focused_corpus.py` | Rebuild the economy/finance/industry-focused corpus |
-| `update_hf_monthly.py` | Incrementally apply monthly dataset updates |
-| `bootstrap_phapdien_taxonomy.py` | Seed taxonomy subjects |
-| `bootstrap_relationship_graph.py` | Build lifecycle relations |
-| `bootstrap_citation_index.py` | Extract and index citations |
-| `bootstrap_appwrite.py` | Sync tracked docs to Appwrite |
-| `prepare_demo_bundle.py` | Prepare preview bundle |
-| `repair_document_dates.py` | Fix date inconsistencies |
-| `oci_maintain.sh` | OCI maintenance helper |
+These scripts reflect the current prototype state and will be superseded gradually by markdown-first exporters and rebuilders.
 
-### Other
-- `templates/` - Jinja2 HTML pages
-- `static/` - CSS, JavaScript, favicon
-- `deploy/oci/` - Docker and deployment configs
-- `docs/` - Deployment notes, journal
+| Script | Current Purpose |
+| --- | --- |
+| `bootstrap_hf_dataset.py` | import corpus from Hugging Face into SQLite |
+| `bootstrap_hf_focused_corpus.py` | legacy focused-corpus rebuild |
+| `update_hf_monthly.py` | incremental update from Hugging Face snapshot |
+| `export_hf_markdown_corpus.py` | export the HF bootstrap corpus into canonical markdown files |
+| `import_phapdien_corpus.py` | import the official Phap dien ebook bundle into codified markdown files |
+| `backfill_vbpl_references.py` | harvest official VBPL links from Phap dien and backfill issued markdown provenance |
+| `import_vncp_listing.py` | import Government Portal legal-document listing rows into provisional issued markdown |
+| `build_pdf_ocr_queue.py` | build an OCR work queue for PDF-backed corpus records |
+| `preview_pdf_ocr_mapping.py` | preview how OCR text maps into the legal markdown structure |
+| `apply_pdf_ocr_text.py` | apply OCR text back into a canonical markdown document |
+| `process_pdf_attachments.py` | download official PDF attachments, extract text, and map them back into canonical markdown |
+| `apply_minimax_ocr_correction.py` | run MiniMax text-only post-correction on OCR text for low-confidence scanned laws |
+| `rebuild_sqlite_from_markdown.py` | rebuild SQLite indexes from canonical markdown |
+| `migrate_add_search_indexes.py` | backfill `document_number_norm` and search indexes on an existing SQLite DB |
+| `migrate_add_validity_columns.py` | backfill `status`/`effective_date`/`expiry_date` from markdown frontmatter on an existing SQLite DB |
+| `snapshot_official_source.py` | fetch and store raw snapshots from VBPL, vanban.chinhphu, or Phap dien |
+| `bootstrap_phapdien_taxonomy.py` | seed taxonomy subjects |
+| `bootstrap_relationship_graph.py` | build lifecycle relations |
+| `bootstrap_citation_index.py` | build citation links |
+| `prepare_demo_bundle.py` | prepare preview bundle |
+| `repair_document_dates.py` | repair inconsistent dates |
 
 ## Local Development
 
 ### Prerequisites
+
 - Python `3.12+`
 - `uv`
 
 ### Quick Start
 
 ```bash
-# Install dependencies
 uv sync
-
-# Run locally
 uv run uvicorn vlegal_prototype.app:app --reload --app-dir src
-# Open http://127.0.0.1:8000
 ```
+
+Open `http://127.0.0.1:8000`.
 
 ### Verification Commands
 
 ```bash
-# Syntax check all Python
 uv run python -m compileall src scripts
-
-# Health check (with server running)
 curl http://127.0.0.1:8000/health
 ```
 
-## Data Bootstrap
+## Current Bootstrap Commands
 
-### Small local sample (500 docs)
+These commands cover both the new markdown-first workflow and the older SQLite-first prototype.
+
+### Recommended markdown-first bootstrap
+
+```bash
+# Export canonical markdown files under data/corpus/
+uv run python scripts/export_hf_markdown_corpus.py --limit 500 --reset
+
+# Rebuild SQLite from the canonical markdown corpus
+set VLEGAL_DATABASE_PATH=data/corpus/sqlite/vlegal.sqlite
+uv run python scripts/rebuild_sqlite_from_markdown.py --reset
+```
+
+### Snapshot an official source page into the raw corpus layer
+
+```bash
+uv run python scripts/snapshot_official_source.py \
+  --source-system vbpl \
+  --source-document-id 213327 \
+  --url https://vbpl.vn/pages/portal.aspx
+```
+
+### Import the official Phap dien codified layer
+
+```bash
+# Import one de muc for testing
+uv run python scripts/import_phapdien_corpus.py \
+  --limit 1 \
+  --topic-id 0cf69ad9-6f29-4ee4-8e16-2c3aa65c3a52
+
+# Import the full ebook bundle into data/corpus/markdown/phapdien/
+uv run python scripts/import_phapdien_corpus.py
+```
+
+### Backfill official VBPL provenance into issued markdown files
+
+```bash
+uv run python scripts/backfill_vbpl_references.py
+```
+
+This scans imported `Phap dien` topics for embedded official `vbpl.vn` links, builds a local VBPL reference index, and writes `official_source_*` fields into matching issued markdown documents when the document number matches exactly.
+
+### Import Government Portal issued-document listings
+
+```bash
+# Import the first law/phap lenh row from the Government Portal listing
+uv run python scripts/import_vncp_listing.py --typegroupid 3 --limit 1
+
+# Import the first 10 Government Portal decrees
+uv run python scripts/import_vncp_listing.py --typegroupid 4 --limit 10
+```
+
+This uses the server-rendered `he-thong-van-ban` listing pages, fetches each detail page, emits provisional markdown records, and backfills `official_source_*` onto matching issued markdown files when no better source is already attached.
+
+### Build and process the PDF OCR queue
+
+```bash
+# Discover which canonical documents still need PDF OCR
+uv run python scripts/build_pdf_ocr_queue.py
+
+# Preview how OCR text maps into the markdown schema
+uv run python scripts/preview_pdf_ocr_mapping.py --text-file data/sample_ocr.txt --title "Luật mẫu"
+
+# Apply OCR text back into a canonical markdown document
+uv run python scripts/apply_pdf_ocr_text.py \
+  --canonical-id vn-issued-vpcp-216529 \
+  --text-file data/ocr_output.txt \
+  --backend paddleocr_ppstructure_plus_vietocr
+
+# Run the hybrid PDF processor directly
+uv run python scripts/process_pdf_attachments.py --canonical-id vn-issued-vpcp-216529
+
+# Run MiniMax text-only OCR post-correction after PaddleOCR
+uv run python scripts/apply_minimax_ocr_correction.py --canonical-id vn-issued-vpcp-216529
+```
+
+### Dedicated OCR runtime
+
+The main app environment stays on Python `3.14`, but the PaddleOCR execution path runs in a dedicated Python `3.13` environment at `.venv-ocr/` because `paddlepaddle` does not currently ship wheels for `cp314` on Windows.
+
+MiniMax does not need image support in this architecture. Images and PDFs are handled by PaddleOCR first, then MiniMax is used only on extracted text for post-correction when the OCR sidecar flags a document as `optional` or `recommended` for LLM help.
+
+### Small local sample
+
 ```bash
 uv run python scripts/bootstrap_hf_dataset.py --limit 500 --reset
 uv run python scripts/bootstrap_phapdien_taxonomy.py --seed-only
 ```
 
-### Continue from offset
-```bash
-uv run python scripts/bootstrap_hf_dataset.py --skip 2000 --limit 2000
-```
+### Full-corpus import into SQLite
 
-### Full corpus
 ```bash
 set VLEGAL_DATABASE_PATH=data/full_hf.sqlite
-uv run python scripts/bootstrap_hf_dataset.py --chunk-size 5000 --checkpoint-path data/full_hf_checkpoint.json
+uv run python scripts/bootstrap_hf_dataset.py
 uv run python scripts/bootstrap_relationship_graph.py
 uv run python scripts/bootstrap_citation_index.py
 ```
 
-### Focused economy / finance / industry corpus
+### Incremental updater
+
 ```bash
-set VLEGAL_DATABASE_PATH=data/full_hf.sqlite
-uv run python scripts/bootstrap_hf_focused_corpus.py --reset
-```
-
-See `docs/FOCUSED_CORPUS_SCOPE.md` for the inclusion and exclusion rules.
-
-### Preview bundle
-```bash
-uv run python scripts/prepare_demo_bundle.py --limit 500 --seed-only-taxonomy
-```
-
-### Monthly updater
-```bash
-# Focused corpus: rebuild the focused selection, import only changed docs, then refresh relations/citations
-uv run python scripts/update_hf_monthly.py --mode focused
-
-# Full corpus: scan the source stream and import only changed docs
 uv run python scripts/update_hf_monthly.py --mode full
 ```
 
-### Incremental bootstrap mode
-```bash
-# Re-run an existing import without rewriting unchanged documents
-uv run python scripts/bootstrap_hf_dataset.py --skip-unchanged
-uv run python scripts/bootstrap_hf_focused_corpus.py --skip-unchanged
-```
+These commands are transitional. The target pipeline is markdown-first and is documented in `docs/FULL_MARKDOWN_PORT_PLAN.md`.
 
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `VLEGAL_DATABASE_PATH` | `data/vlegal.sqlite` | SQLite corpus location |
+| --- | --- | --- |
+| `VLEGAL_DATABASE_PATH` | `data/vlegal.sqlite` | SQLite index location |
+| `VLEGAL_CORPUS_ROOT` | `data/corpus` | local markdown corpus root |
+| `VLEGAL_PHAPDIEN_EBOOK_URL` | official Phap dien zip URL | official ebook snapshot URL |
 | `VLEGAL_CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | CORS origins |
-| `VLEGAL_SEARCH_PAGE_SIZE` | `12` | Results per page |
-| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `6` | Passages for brief generation |
-| `VLEGAL_APPWRITE_ENDPOINT` | - | Appwrite API endpoint |
-| `VLEGAL_APPWRITE_PROJECT_ID` | - | Appwrite project ID |
-| `VLEGAL_APPWRITE_DATABASE_ID` | - | Appwrite database ID |
-| `VLEGAL_APPWRITE_API_KEY` | - | Appwrite API key |
+| `VLEGAL_SEARCH_PAGE_SIZE` | `12` | results per page |
+| `VLEGAL_ANSWER_PASSAGE_LIMIT` | `6` | passages used for grounded briefs |
+| `VLEGAL_ENABLE_AI_SCHEMA_SIDECAR` | `false` | enable optional AI schema reinforcement sidecars |
+| `VLEGAL_AI_SCHEMA_PROVIDER` | `off` | AI sidecar provider, currently `off`, `openai_compatible`, or `minimax` |
+| `VLEGAL_AI_SCHEMA_MODEL` | - | model name for optional AI sidecar generation |
+| `VLEGAL_AI_SCHEMA_ENDPOINT` | - | chat completions endpoint for optional AI sidecar generation |
+| `VLEGAL_AI_SCHEMA_API_KEY` | - | API key for optional AI sidecar generation |
 
-## Testing
+Legacy transitional settings still exist in code for Appwrite, but Appwrite is not part of the target architecture.
 
-Once pytest is installed:
-```bash
-# Run all tests
-uv run python -m pytest tests/ -v
+## Security & Secrets
 
-# Run specific test file
-uv run python -m pytest tests/test_search.py -q
-
-# Run specific test function
-uv run python -m pytest tests/test_search.py -k test_search_documents -q
-```
-
-Test files should mirror `src/` structure (e.g., `tests/test_search.py` for `search.py`).
+- **Never commit secrets.** Real credentials (API keys, tokens, SSH connection strings, passwords) must live only in a local `.env` file, which is gitignored. Copy `.env.example` to `.env` and fill in real values locally.
+- `.env.example` must contain **placeholders only** (e.g. `your_api_key`); it is the only env file tracked in git.
+- All secrets are loaded from environment variables via `src/vlegal_prototype/settings.py`. Do not hardcode keys in source, scripts, or docs.
+- If a secret is ever committed, treat it as compromised: **rotate it immediately** at the provider (Appwrite, Netlify, MiniMax, OCI, etc.) and then purge it from git history (`git filter-repo`/BFG) before force-pushing.
+- Before committing, scan staged changes for accidental secrets (e.g. `git diff --cached` plus a grep for `api_key|token|secret|password`).
 
 ## Manual Verification Routes
 
-After starting the server:
-- `/` - Home/search
-- `/tracking` - Tracked documents
-- `/documents/{id}` - Document detail
-- `/compare/{left_id}/{right_id}` - Side-by-side compare
-- `/health` - Health check
-
-## Deployment Docs
-
-| Document | Content |
-|----------|---------|
-| `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` | Current Netlify + OCI + Appwrite |
-| `docs/DEPLOYMENT_OCI_VERCEL.md` | OCI backend + Vercel frontend |
-| `docs/DEPLOYMENT.md` | Legacy preview deployment notes (Render / Docker) |
-| `docs/FOCUSED_CORPUS_SCOPE.md` | Focused economy/finance/industry corpus rules |
-| `deploy/oci/MAINTAIN.md` | OCI maintenance tasks |
-| `DESIGN.md` | Visual design system |
+- `/`
+- `/tracking`
+- `/documents/{id}`
+- `/compare/{left_id}/{right_id}`
+- `/health`
 
 ## Trust Model
 
-This is a prototype, **not** an authoritative legal-status engine.
+This is still a prototype and is **not** an authoritative legal-status engine.
 
-**Limitations:**
-- Hugging Face corpus is a bootstrap source, not final source of truth
-- Citation and lifecycle graphs are local-corpus-dependent and incomplete
-- VBPL and VNCP links are search routes, not guaranteed canonical deep links
-- Grounded briefs are retrieval-based summaries requiring official verification
+Current limits:
+
+- the current import path is still SQLite-first
+- Hugging Face remains a bootstrap source, not final source of truth
+- citation and lifecycle graphs depend on local corpus quality
+- official-source reconciliation is not fully implemented yet
+- grounded briefs remain retrieval-based summaries that require official verification
+
+## Legacy Notes
+
+- `docs/FOCUSED_CORPUS_SCOPE.md` is now a legacy direction note
+- `docs/DEPLOYMENT_NETLIFY_APPWRITE.md` is an archived deployment path
+- remaining Appwrite code should be treated as transitional, not strategic
 
 ## Project References
 

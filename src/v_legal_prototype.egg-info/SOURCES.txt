@@ -6,12 +6,19 @@ src/v_legal_prototype.egg-info/dependency_links.txt
 src/v_legal_prototype.egg-info/requires.txt
 src/v_legal_prototype.egg-info/top_level.txt
 src/vlegal_prototype/__init__.py
+src/vlegal_prototype/ai_schema.py
 src/vlegal_prototype/answering.py
 src/vlegal_prototype/app.py
+src/vlegal_prototype/appwrite_client.py
 src/vlegal_prototype/citations.py
 src/vlegal_prototype/compare.py
+src/vlegal_prototype/corpus.py
 src/vlegal_prototype/db.py
 src/vlegal_prototype/hf_ingest.py
+src/vlegal_prototype/minimax_text.py
+src/vlegal_prototype/official_sources.py
+src/vlegal_prototype/pdf_ocr.py
+src/vlegal_prototype/phapdien.py
 src/vlegal_prototype/provenance.py
 src/vlegal_prototype/relations.py
 src/vlegal_prototype/research.py
@@ -20,3 +27,7 @@ src/vlegal_prototype/settings.py
 src/vlegal_prototype/structure.py
 src/vlegal_prototype/taxonomy.py
 src/vlegal_prototype/tracking.py
+src/vlegal_prototype/vbpl.py
+src/vlegal_prototype/vectorless.py
+src/vlegal_prototype/vncp.py
+tests/test_identifier_search.py

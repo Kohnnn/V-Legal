@@ -1,9 +1,11 @@
 .venv/
+.venv-ocr/
 __pycache__/
 *.pyc
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+data/corpus/
 data/*.log
 data/hf_import_checkpoint.json
 data/hf_full_import.log
@@ -29,3 +31,6 @@ NUL
 deployed-screenshots/
 command
 full_hf.sqlite.tar.gz
+
+# Local runtime artifacts
+.local_server.pid

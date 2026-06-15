@@ -2,15 +2,32 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from functools import lru_cache
 from html import escape
 
+from .doc_number import (
+    CONTEXTUAL_DOC_REFERENCE_PATTERN_UNICODE as CONTEXTUAL_DOC_REFERENCE_PATTERN_V2,
+    DOC_NUMBER_PATTERN_UNICODE as DOC_NUMBER_PATTERN_V2,
+)
 from .taxonomy import normalize_ascii
 
 
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.*)$")
-ARTICLE_PATTERN = re.compile(r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\-./]*)", re.IGNORECASE)
+ARTICLE_PATTERN = re.compile(
+    r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\u00c0-\u1ef9\-./]*)",
+    re.IGNORECASE,
+)
+
+# Nesting depth used to render the outline as a collapsible tree.
+OUTLINE_DEPTHS = {
+    "part": 1,      # Phần
+    "chapter": 2,   # Chương
+    "section": 3,   # Mục
+    "heading": 3,
+    "article": 4,   # Điều
+}
 ARTICLE_LINE_PATTERN = re.compile(
-    r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\-./]*)(?:[.:]\s*(.*))?$",
+    r"^((?:Điều|Dieu)\s+\d+[A-Za-z0-9\u00c0-\u1ef9\-./]*)(?:[.:]\s*(.*))?$",
     re.IGNORECASE,
 )
 SECTION_PATTERN = re.compile(
@@ -153,7 +170,7 @@ def detect_section(raw_line: str) -> tuple[str, str] | None:
 
     heading_match = HEADING_PATTERN.match(raw_line)
     if heading_match:
-        return ("heading", heading_match.group(2).strip())
+        line = heading_match.group(2).strip()
 
     article_match = ARTICLE_PATTERN.match(line)
     if article_match:
@@ -171,10 +188,30 @@ def detect_section(raw_line: str) -> tuple[str, str] | None:
     if section_match and looks_like_structural_heading(line):
         return ("section", section_match.group(1).strip())
 
+    if heading_match:
+        return ("heading", line)
+
     return None
 
 
 def extract_sections(markdown_content: str) -> list[dict]:
+    """Public entry point: returns fresh copies of cached parsed sections.
+
+    The line-by-line parse is deterministic for a given ``markdown_content`` and
+    is executed at least three times per reader page load (outline, anchor
+    lookup, runtime citation support). Cache the parse and hand back shallow
+    copies so callers that pop/mutate (e.g. ``build_section_anchor_lookup``)
+    never corrupt the shared cached structure.
+    """
+    return [dict(section) for section in _extract_sections_cached(markdown_content)]
+
+
+@lru_cache(maxsize=256)
+def _extract_sections_cached(markdown_content: str) -> tuple[dict, ...]:
+    return tuple(_extract_sections_uncached(markdown_content))
+
+
+def _extract_sections_uncached(markdown_content: str) -> list[dict]:
     lines = markdown_content.splitlines()
     sections: list[dict] = [
         {
@@ -250,7 +287,12 @@ def prepare_document_markup(markdown_content: str) -> tuple[str, list[dict]]:
         lines.append(raw_line)
 
     outline = [
-        {"heading": section["label"], "anchor": section["anchor"]}
+        {
+            "heading": section["label"],
+            "anchor": section["anchor"],
+            "section_type": section["section_type"],
+            "depth": OUTLINE_DEPTHS.get(section["section_type"], 4),
+        }
         for section in sections
         if section["section_type"]
         in {"heading", "chapter", "part", "section", "article"}
@@ -907,9 +949,17 @@ def build_document_display_html(
                 section_citation_counts,
                 section_citation_labels,
             )
+            anchor_link = (
+                f'<a class="doc-article-anchor-link" href="#{article_anchor}" '
+                f'data-article-anchor="{article_anchor}" '
+                'title="Sao chép liên kết tới điều này" role="button" tabindex="0">#</a>'
+                if article_anchor
+                else ""
+            )
             html_parts.append(
                 '<header class="law-article__header">'
                 f'<h2 class="law-article__label">{escape(article_label)}</h2>'
+                f"{anchor_link}"
                 f"{section_badge}"
                 "</header>"
             )
@@ -1052,15 +1102,6 @@ def build_document_display_html(
     html_parts.append("</div>")
     rendered_html = "".join(html_parts)
     return inject_document_links(rendered_html, citation_map)
-
-
-DOC_NUMBER_PATTERN_V2 = re.compile(
-    r"\b([0-9]{1,4}[a-z]?(?:[/-][0-9]{2,4})?(?:[/-][A-Za-z0-9\u00c0-\u1ef9]*[A-Za-z\u00c0-\u1ef9][A-Za-z0-9\u00c0-\u1ef9]*)+)\b"
-)
-CONTEXTUAL_DOC_REFERENCE_PATTERN_V2 = re.compile(
-    r"\b(?:Sắc lệnh|Pháp lệnh|Nghị định|Nghị quyết|Quyết định|Chỉ thị|Thông tư(?: liên tịch)?|Lệnh|Luật|Bộ luật)\s*số\s*([0-9]{1,4}(?:[/-][0-9]{2,4})?(?:[/-][A-Za-z0-9\u00c0-\u1ef9\-]+)?)\b",
-    re.IGNORECASE,
-)
 
 
 def _extract_raw_references(text: str) -> list[tuple[str, int, int]]:

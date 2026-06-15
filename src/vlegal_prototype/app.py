@@ -39,7 +39,8 @@ from .compare import (
     build_compare_view,
     pick_compare_target,
 )
-from .db import get_connection, get_stats, initialize_database, is_empty
+from .db import get_archive_home_cache, get_archive_stats, get_connection, get_stats, initialize_database, is_empty
+from .db import _ensure_document_columns as ensure_document_columns
 from .provenance import build_provenance_profile, enrich_documents_with_provenance
 from .research import (
     build_default_view_name,
@@ -57,6 +58,7 @@ from .relations import (
 from .search import (
     get_documents_by_ids,
     get_document,
+    get_document_meta,
     get_filter_options,
     get_recent_documents,
     get_related_documents,
@@ -78,10 +80,24 @@ from .structure import (
     prepare_document_markup,
 )
 from .tracking import get_same_subject_updates
+from .validity import build_text_provenance_notice, build_validity_badge
 
 
 USER_ID_COOKIE_NAME = "vlegal_user_id"
 USER_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+DEFAULT_HOME_LEGAL_TYPES = [
+    "Quyết định",
+    "Nghị quyết",
+    "Thông tư",
+    "Chỉ thị",
+    "Nghị định",
+    "Thông tư liên tịch",
+    "Sắc lệnh",
+    "Công văn",
+    "Luật",
+    "Lệnh",
+    "Đề mục pháp điển",
+]
 
 
 def build_user_id_cookie_header(user_id: str, *, secure: bool) -> str:
@@ -179,6 +195,8 @@ def list_local_tracked_rows(connection) -> list[dict]:
 
 
 def list_user_tracked_rows(connection, user_id: str) -> list[dict]:
+    if settings.skip_remote_user_data:
+        return list_local_tracked_rows(connection)
     try:
         return aw_list_tracked(user_id)
     except Exception:
@@ -215,6 +233,9 @@ def track_document_for_user(
     document_title: str,
     document_number: str,
 ) -> None:
+    if settings.skip_remote_user_data:
+        set_document_tracking(connection, document_id, True)
+        return
     try:
         aw_track_document(
             user_id=user_id,
@@ -227,6 +248,9 @@ def track_document_for_user(
 
 
 def untrack_document_for_user(connection, user_id: str, document_id: int) -> None:
+    if settings.skip_remote_user_data:
+        set_document_tracking(connection, document_id, False)
+        return
     try:
         aw_untrack_document(user_id, document_id)
     except Exception:
@@ -242,6 +266,11 @@ def normalize_local_research_view(view: dict | None) -> dict | None:
 
 
 def list_user_research_views(connection, user_id: str) -> list[dict]:
+    if settings.skip_remote_user_data:
+        return [
+            normalize_local_research_view(view)
+            for view in list_local_research_views(connection)
+        ]
     try:
         return aw_list_research_views(user_id)
     except Exception:
@@ -252,6 +281,14 @@ def list_user_research_views(connection, user_id: str) -> list[dict]:
 
 
 def get_user_research_view(connection, user_id: str, view_id: str) -> dict | None:
+    if settings.skip_remote_user_data:
+        try:
+            local_view_id = int(view_id)
+        except ValueError:
+            return None
+        return normalize_local_research_view(
+            get_local_research_view(connection, local_view_id)
+        )
     try:
         view = aw_get_research_view(user_id, view_id)
         if view:
@@ -279,6 +316,19 @@ def create_user_research_view(
     year: int,
     issuer: str,
 ) -> dict:
+    if settings.skip_remote_user_data:
+        view_id = create_local_research_view(
+            connection,
+            name=name,
+            query=query,
+            topic_slug=topic_slug,
+            legal_type=legal_type,
+            year=year or None,
+            issuer=issuer,
+        )
+        return normalize_local_research_view(
+            get_local_research_view(connection, view_id)
+        )
     try:
         return aw_create_research_view(
             user_id=user_id,
@@ -305,6 +355,15 @@ def create_user_research_view(
 
 
 def delete_user_research_view(connection, user_id: str, view_id: str) -> bool:
+    if settings.skip_remote_user_data:
+        try:
+            local_view_id = int(view_id)
+        except ValueError:
+            return False
+        if not get_local_research_view(connection, local_view_id):
+            return False
+        delete_local_research_view(connection, local_view_id)
+        return True
     try:
         if aw_delete_research_view(user_id, view_id):
             return True
@@ -342,6 +401,20 @@ def get_db():
 def startup() -> None:
     connection = get_connection()
     try:
+        if get_settings().skip_startup_maintenance:
+            documents_table = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents'"
+            ).fetchone()
+            if documents_table and not is_empty(connection):
+                # Existing corpus: still run the cheap column migration so a DB
+                # created before a schema change does not crash queries that
+                # reference new columns. Index creation is left to the migration
+                # script / full rebuild to avoid expensive work at startup.
+                ensure_document_columns(connection)
+                connection.commit()
+                return
+            initialize_database(connection)
+            return
         initialize_database(connection)
         if (
             connection.execute("SELECT COUNT(*) FROM taxonomy_subjects").fetchone()[0]
@@ -408,11 +481,18 @@ def home(
     year: str = "",
     issuer: str | None = None,
     topic: str | None = None,
+    status: str | None = None,
     connection=Depends(get_db),
 ):
     user_id = get_user_id(request)
-    stats = get_stats(connection)
-    options = get_filter_options(connection)
+    stats = get_archive_stats(connection)
+    home_cache = get_archive_home_cache() or {}
+    options = home_cache.get("filters") or {
+        "legal_types": DEFAULT_HOME_LEGAL_TYPES,
+        "years": [],
+    }
+    if not options.get("legal_types"):
+        options["legal_types"] = DEFAULT_HOME_LEGAL_TYPES
     taxonomy_subjects = get_taxonomy_subjects(connection)
     active_topic = get_taxonomy_subject_by_slug(connection, topic) if topic else None
     effective_query = q.strip()
@@ -424,19 +504,42 @@ def home(
         effective_query = active_topic["name"]
     elif active_topic and effective_query:
         effective_query = f"{active_topic['name']} {effective_query}"
-    results = search_documents(
-        connection=connection,
-        query=effective_query,
-        page=page,
-        page_size=settings.search_page_size,
-        legal_type=legal_type,
-        year=selected_year_value,
-        issuer=issuer,
+    default_archive_view = not any(
+        [effective_query, legal_type, selected_year_value, issuer, status]
     )
+    if default_archive_view:
+        recent_items = home_cache.get("recent_documents") or get_recent_documents(
+            connection, limit=settings.search_page_size
+        )
+        recent_items = recent_items[: settings.search_page_size]
+        results = {
+            "items": recent_items,
+            "page": 1,
+            "page_count": 1,
+            "total": stats["document_count"],
+        }
+    else:
+        results = search_documents(
+            connection=connection,
+            query=effective_query,
+            page=page,
+            page_size=settings.search_page_size,
+            legal_type=legal_type,
+            year=selected_year_value,
+            issuer=issuer,
+            status=status,
+        )
     results["items"] = enrich_documents_with_provenance(results["items"])
     tracked_state = get_user_tracked_state(connection, user_id)
-    recent_documents = get_recent_documents(connection)
-    top_legal_types = get_top_legal_types(connection)
+    recent_documents = home_cache.get("recent_documents") or get_recent_documents(connection)
+    top_legal_types = home_cache.get("top_legal_types") or []
+    if not top_legal_types and not settings.skip_startup_maintenance:
+        top_legal_types = get_top_legal_types(connection)
+    if not top_legal_types:
+        top_legal_types = [
+            {"legal_type": item, "total": 0}
+            for item in options.get("legal_types", [])[:6]
+        ]
     research_views = list_user_research_views(connection, user_id)
     return templates.TemplateResponse(
         name="index.html",
@@ -451,6 +554,7 @@ def home(
             "selected_type": legal_type or "",
             "selected_year": selected_year_value,
             "selected_issuer": issuer or "",
+            "selected_status": status or "",
             "tracked_ids": tracked_state["ids"],
             "tracked_documents": tracked_state["documents"],
             "recent_documents": recent_documents,
@@ -556,10 +660,15 @@ def tracking_workbench(request: Request, connection=Depends(get_db)):
         "dossiers": dossiers,
     }
     research_views = list_user_research_views(connection, user_id)
+    archive_stats = get_archive_stats(connection)
     stats = {
-        **get_stats(connection),
+        **archive_stats,
         "tracked_count": len(aw_tracked),
         "research_view_count": len(research_views),
+        "authority_count": 0,
+        "taxonomy_subject_count": 0,
+        "relation_count": 0,
+        "citation_link_count": 0,
     }
     return templates.TemplateResponse(
         name="tracking.html",
@@ -632,6 +741,8 @@ def document_detail(request: Request, document_id: int, connection=Depends(get_d
             "document": document,
             "document_display_html": Markup(document_display_html),
             "document_outline": outline,
+            "validity_badge": build_validity_badge(document),
+            "text_provenance_notice": build_text_provenance_notice(document),
             "document_subjects": document_subjects,
             "provenance": provenance,
             "citation_graph": citation_graph,
@@ -650,8 +761,8 @@ def compare_documents(
     right_document_id: int,
     connection=Depends(get_db),
 ):
-    left_document = get_document(connection, left_document_id)
-    right_document = get_document(connection, right_document_id)
+    left_document = get_document_meta(connection, left_document_id)
+    right_document = get_document_meta(connection, right_document_id)
     if not left_document or not right_document:
         raise HTTPException(
             status_code=404, detail="One or both documents were not found"
@@ -766,6 +877,7 @@ def api_search(
     legal_type: str | None = None,
     year: int | None = None,
     issuer: str | None = None,
+    status: str | None = None,
     connection=Depends(get_db),
 ):
     results = search_documents(
@@ -776,6 +888,7 @@ def api_search(
         legal_type=legal_type,
         year=year,
         issuer=issuer,
+        status=status,
     )
     results["items"] = enrich_documents_with_provenance(results["items"])
     return JSONResponse(results)
@@ -846,8 +959,8 @@ def api_citation_preview(
     raw_reference: str | None = None,
     connection=Depends(get_db),
 ):
-    source_document = get_document(connection, source_document_id)
-    target_document = get_document(connection, target_document_id)
+    source_document = get_document_meta(connection, source_document_id)
+    target_document = get_document_meta(connection, target_document_id)
     if not source_document or not target_document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -869,8 +982,14 @@ def api_citation_preview(
     )
     preview["target_document"]["reader_path"] = f"/documents/{target_document_id}"
 
-    target_relation_graph = get_document_relation_graph(connection, target_document_id)
-    target_citation_graph = get_document_citation_graph(connection, target_document_id)
+    # Reuse the target graphs already computed inside get_inline_citation_preview
+    # instead of recomputing the same multi-join queries here.
+    target_relation_graph = preview.pop(
+        "_target_relation_graph", None
+    ) or get_document_relation_graph(connection, target_document_id)
+    target_citation_graph = preview.pop(
+        "_target_citation_graph", None
+    ) or get_document_citation_graph(connection, target_document_id)
     target_related_documents = get_related_documents(connection, target_document)
     compare_target = pick_compare_target(
         relation_graph=target_relation_graph,
@@ -878,7 +997,7 @@ def api_citation_preview(
         related_documents=target_related_documents,
     )
     if compare_target:
-        compare_document = get_document(connection, compare_target["id"])
+        compare_document = get_document_meta(connection, compare_target["id"])
         if compare_document:
             preview["target_document"]["compare_preview"] = build_compare_focus_preview(
                 connection,
@@ -895,8 +1014,8 @@ def api_compare(
     right_document_id: int,
     connection=Depends(get_db),
 ):
-    left_document = get_document(connection, left_document_id)
-    right_document = get_document(connection, right_document_id)
+    left_document = get_document_meta(connection, left_document_id)
+    right_document = get_document_meta(connection, right_document_id)
     if not left_document or not right_document:
         raise HTTPException(
             status_code=404, detail="One or both documents were not found"
@@ -913,7 +1032,7 @@ def api_relations(document_id: int, connection=Depends(get_db)):
 
 @app.get("/health")
 def health(connection=Depends(get_db)):
-    stats = get_stats(connection)
+    stats = get_archive_stats(connection)
     return {"status": "ok", "documents": stats["document_count"]}
 
 

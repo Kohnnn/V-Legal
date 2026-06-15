@@ -13,6 +13,9 @@ DOCUMENT_NUMBER_PATTERN = re.compile(
     r"\b\d{1,4}/\d{4}/[0-9a-z][0-9a-z/-]{1,30}\b", re.IGNORECASE
 )
 TOKEN_PATTERN = re.compile(r"[0-9a-z]+")
+MAX_RETRIEVAL_CONTENT_CHARS = 300000
+MAX_RETRIEVAL_PASSAGES = 512
+MAX_RETRIEVAL_HEADINGS = 256
 
 STOPWORDS = {
     "ban",
@@ -97,7 +100,8 @@ def collect_keywords(record: dict, limit: int = 48) -> list[str]:
         (record.get("excerpt") or "", 1),
     ]
     weights.extend(
-        (passage.get("heading") or "", 1) for passage in record.get("passages", [])
+        (passage.get("heading") or "", 1)
+        for passage in record.get("passages", [])[:MAX_RETRIEVAL_PASSAGES]
     )
 
     counts: Counter[str] = Counter()
@@ -113,15 +117,18 @@ def collect_keywords(record: dict, limit: int = 48) -> list[str]:
 
 
 def build_document_retrieval_profile(record: dict) -> dict:
+    sampled_passages = record.get("passages", [])[:MAX_RETRIEVAL_PASSAGES]
     headings = unique_in_order(
         [
             normalize_retrieval_text(passage.get("heading"))
-            for passage in record.get("passages", [])
+            for passage in sampled_passages
             if normalize_retrieval_text(passage.get("heading"))
             and normalize_retrieval_text(passage.get("heading")) != "mo dau"
         ]
-    )
-    normalized_content = normalize_retrieval_text(record.get("content"))
+    )[:MAX_RETRIEVAL_HEADINGS]
+    normalized_content = normalize_retrieval_text(record.get("content"))[
+        :MAX_RETRIEVAL_CONTENT_CHARS
+    ]
     article_index = unique_in_order(ARTICLE_PATTERN.findall(normalized_content))[:128]
     citation_index = unique_in_order(
         [

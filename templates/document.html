@@ -16,6 +16,14 @@
                 {% if document.document_number %}<span class="doc-meta-tag">{{ document.document_number }}</span>{% endif %}
                 {% if document.issuance_date %}<span class="doc-meta-tag">{{ document.issuance_date }}</span>{% endif %}
                 {% if document.issuing_authority %}<span class="doc-meta-tag">{{ document.issuing_authority }}</span>{% endif %}
+                {% if validity_badge %}
+                    <span class="doc-validity-badge doc-validity-badge--{{ validity_badge.key }}{% if validity_badge.unverified %} doc-validity-badge--unverified{% endif %}"
+                          title="{% if validity_badge.unverified %}Trạng thái chưa được đối chiếu nguồn chính thức{% else %}Theo dữ liệu nội bộ{% endif %}">
+                        {{ validity_badge.label }}{% if validity_badge.unverified %} (chưa đối chiếu){% endif %}
+                    </span>
+                    {% if validity_badge.effective_date %}<span class="doc-meta-tag doc-meta-tag--muted">Hiệu lực: {{ validity_badge.effective_date }}</span>{% endif %}
+                    {% if validity_badge.expiry_date %}<span class="doc-meta-tag doc-meta-tag--muted">Hết hiệu lực: {{ validity_badge.expiry_date }}</span>{% endif %}
+                {% endif %}
             </div>
             <div class="doc-chrome__actions">
                 <button
@@ -24,6 +32,9 @@
                     data-track-button
                     data-document-id="{{ document.id }}"
                     data-tracked="{{ 'true' if is_tracked else 'false' }}"
+                    data-active-class="doc-action-btn--active"
+                    data-label-track="Theo dõi văn bản"
+                    data-label-tracked="Đã theo dõi"
                 >
                     {% if is_tracked %}Đã theo dõi{% else %}Theo dõi văn bản{% endif %}
                 </button>
@@ -56,12 +67,24 @@
             </div>
         </section>
 
-        <nav class="doc-tabs" aria-label="Document sections">
-            <a class="doc-tab doc-tab--active" href="#doc-body">Nội dung</a>
-            {% if document_outline %}<a class="doc-tab" href="#doc-toc">Mục lục</a>{% endif %}
-            {% if citation_graph.outgoing_total or citation_graph.incoming_total %}<a class="doc-tab" href="#doc-refs">Liên quan nội dung</a>{% endif %}
-            {% if relation_graph.total %}<a class="doc-tab" href="#doc-validity">Hiệu lực & cập nhật</a>{% endif %}
+        <nav class="doc-tabs" aria-label="Document sections" data-doc-tabs>
+            <a class="doc-tab doc-tab--active" href="#doc-body" data-doc-tab="doc-body">Nội dung</a>
+            {% if document_outline %}<a class="doc-tab" href="#doc-toc" data-doc-tab="doc-toc">Mục lục</a>{% endif %}
+            {% if citation_graph.outgoing_total or citation_graph.incoming_total %}<a class="doc-tab" href="#doc-refs" data-doc-tab="doc-refs">Liên quan nội dung</a>{% endif %}
+            {% if relation_graph.total %}<a class="doc-tab" href="#doc-validity" data-doc-tab="doc-validity">Hiệu lực & cập nhật</a>{% endif %}
         </nav>
+
+        {% if text_provenance_notice %}
+            <aside class="doc-provenance-notice doc-provenance-notice--{{ text_provenance_notice.severity }}" role="note">
+                <strong>{{ text_provenance_notice.headline }}</strong>
+                <ul>
+                    {% for reason in text_provenance_notice.reasons %}<li>{{ reason }}</li>{% endfor %}
+                </ul>
+                {% if text_provenance_notice.verify_url %}
+                    <a href="{{ text_provenance_notice.verify_url }}" target="_blank" rel="noopener noreferrer">Mở nguồn chính thức để đối chiếu</a>
+                {% endif %}
+            </aside>
+        {% endif %}
 
         <div class="doc-body-wrap">
             <main class="doc-col-main">
@@ -88,10 +111,13 @@
                             <p class="section-label">Mục lục</p>
                             <h2>Điểm neo văn bản</h2>
                         </div>
-                        <nav class="doc-outline-list" aria-label="Document outline">
+                        <nav class="doc-outline-tree" aria-label="Document outline" data-doc-outline>
                             {% for item in document_outline %}
-                                <a class="doc-outline-item" href="#{{ item.anchor }}">
-                                    <span>{{ item.heading }}</span>
+                                <a class="doc-outline-item doc-outline-item--depth{{ item.depth }} doc-outline-item--{{ item.section_type }}"
+                                   href="#{{ item.anchor }}"
+                                   data-outline-depth="{{ item.depth }}"
+                                   {% if item.depth <= 2 %}data-outline-branch{% endif %}>
+                                    <span class="doc-outline-item__label">{{ item.heading }}</span>
                                     {% if item.citation_count %}<small>{{ item.citation_count }} dẫn chiếu</small>{% endif %}
                                 </a>
                             {% endfor %}

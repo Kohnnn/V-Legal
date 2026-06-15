@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import sqlite3
+from collections import OrderedDict
 
 from .relations import (
     choose_target_document,
@@ -22,6 +24,12 @@ CITATION_LABELS = {
     "implements": "Implements",
     "cites": "Cites",
 }
+
+# Bounded per-process cache for runtime citation resolution. Keyed on
+# (document id, sha1(content)); the resolution is deterministic for a given
+# body against the current corpus and is otherwise recomputed on every view.
+_RUNTIME_CITATION_CACHE: "OrderedDict[tuple, dict]" = OrderedDict()
+_RUNTIME_CITATION_CACHE_MAX = 256
 
 INVERSE_CITATION_LABELS = {
     "amends": "Amended by",
@@ -469,6 +477,37 @@ def needs_runtime_citation_resolution(mention: dict) -> bool:
 def build_runtime_citation_support(
     connection: sqlite3.Connection, document: dict
 ) -> dict:
+    """Resolve citation mentions the offline index missed, with caching.
+
+    The result is deterministic for a given document body against the current
+    corpus, but computing it fires one SQL query per ambiguous mention. The
+    reader calls this on every page view, so cache by content hash and hand
+    back copies so callers cannot corrupt the cached structure.
+    """
+    content = document.get("content") or ""
+    cache_key = (
+        document.get("id"),
+        hashlib.sha1(content.encode("utf-8")).hexdigest(),
+    )
+    cached = _RUNTIME_CITATION_CACHE.get(cache_key)
+    if cached is None:
+        cached = _build_runtime_citation_support_uncached(connection, document)
+        _RUNTIME_CITATION_CACHE[cache_key] = cached
+        _RUNTIME_CITATION_CACHE.move_to_end(cache_key)
+        while len(_RUNTIME_CITATION_CACHE) > _RUNTIME_CITATION_CACHE_MAX:
+            _RUNTIME_CITATION_CACHE.popitem(last=False)
+    else:
+        _RUNTIME_CITATION_CACHE.move_to_end(cache_key)
+    return {
+        "citation_map": dict(cached["citation_map"]),
+        "section_counts": dict(cached["section_counts"]),
+        "section_labels": dict(cached["section_labels"]),
+    }
+
+
+def _build_runtime_citation_support_uncached(
+    connection: sqlite3.Connection, document: dict
+) -> dict:
     citation_map: dict[str, int] = {}
     section_counts: dict[str, int] = {}
     section_labels: dict[str, int] = {}
@@ -885,4 +924,9 @@ def get_inline_citation_preview(
         ],
         "incoming_total": citation_graph.get("incoming_total", 0),
         "signals": signals,
+        # Internal reuse: the route needs the target's relation/citation graphs
+        # for pick_compare_target. Return the ones already computed here instead
+        # of forcing the route to recompute the same multi-join queries.
+        "_target_relation_graph": relation_graph,
+        "_target_citation_graph": citation_graph,
     }

@@ -80,6 +80,9 @@
                                         data-track-button
                                         data-document-id="{{ item.id }}"
                                         data-tracked="{{ 'true' if item.id in tracked_ids else 'false' }}"
+                                        data-active-class="is-active"
+                                        data-label-track="Track law"
+                                        data-label-tracked="Tracked"
                                     >
                                         {% if item.id in tracked_ids %}Tracked{% else %}Track law{% endif %}
                                     </button>

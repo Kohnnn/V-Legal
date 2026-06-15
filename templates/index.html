@@ -70,6 +70,16 @@
                             {% endfor %}
                         </select>
                     </label>
+                    <label class="filter-field">
+                        <span>Hiệu lực</span>
+                        <select name="status">
+                            <option value="">Tất cả</option>
+                            <option value="in_force" {% if selected_status == 'in_force' %}selected{% endif %}>Còn hiệu lực</option>
+                            <option value="expired" {% if selected_status == 'expired' %}selected{% endif %}>Hết hiệu lực</option>
+                            <option value="partial" {% if selected_status == 'partial' %}selected{% endif %}>Hết hiệu lực một phần</option>
+                            <option value="unknown" {% if selected_status == 'unknown' %}selected{% endif %}>Chưa xác định</option>
+                        </select>
+                    </label>
                     <label class="filter-field filter-field--grow">
                         <span>Issuing authority</span>
                         <input type="text" name="issuer" value="{{ selected_issuer }}" placeholder="Ex: Thu tuong Chinh phu">
@@ -202,8 +212,8 @@
             {% if dataset_empty %}
                 <section class="empty-block">
                     <h3>No local archive yet</h3>
-                    <p>Seed the prototype corpus from Appwrite, then expand as needed.</p>
-                    <code>uv run python scripts/bootstrap_appwrite_to_sqlite.py</code>
+                    <p>Build the local SQLite index from the canonical markdown corpus, then expand as needed.</p>
+                    <code>uv run python scripts/rebuild_sqlite_from_markdown.py --reset</code>
                 </section>
             {% elif results["items"] %}
                 <div class="archive-list archive-list--condensed">
@@ -214,6 +224,10 @@
                                     <span class="meta-chip meta-chip--soft">{{ item.legal_type or "Document" }}</span>
                                     {% if item.document_number %}<span>{{ item.document_number }}</span>{% endif %}
                                     {% if item.issuance_date %}<span>{{ item.issuance_date }}</span>{% endif %}
+                                    {% set st = (item.status or '')|lower|replace('-', '_')|replace(' ', '_') %}
+                                    {% if st in ['in_force', 'active'] %}<span class="status-chip status-chip--in_force">Còn hiệu lực</span>
+                                    {% elif st in ['expired', 'repealed'] %}<span class="status-chip status-chip--expired">Hết hiệu lực</span>
+                                    {% elif st in ['partially_expired', 'partially_in_force'] %}<span class="status-chip status-chip--partial">Hết hiệu lực một phần</span>{% endif %}
                                 </div>
                                 <button
                                     type="button"
@@ -221,6 +235,9 @@
                                     data-track-button
                                     data-document-id="{{ item.id }}"
                                     data-tracked="{{ 'true' if item.id in tracked_ids else 'false' }}"
+                                    data-active-class="is-active"
+                                    data-label-track="Track law"
+                                    data-label-tracked="Tracked"
                                 >
                                     {% if item.id in tracked_ids %}Tracked{% else %}Track law{% endif %}
                                 </button>
